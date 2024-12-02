@@ -1,4 +1,4 @@
-using StructuredLight, CairoMakie, GeneralizedGrossPitaevskii, ProgressMeter
+using StructuredLight, CairoMakie, GeneralizedGrossPitaevskii, ProgressMeter, FFTW, LinearAlgebra
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
@@ -15,7 +15,7 @@ g = 4.0f0
 rs = range(; start=-L / 2, length=N, step=ΔL)
 
 ψ₀ = zeros(ComplexF32, N, N)
-F(I, w, rs...) = sqrt(I) * exp(-sum(abs2, rs) / w^2)
+F(w, rs...) = exp(-sum(abs2, rs) / w^2)
 
 ω₀ = 1483.0f0
 δ = 0.3f0
@@ -43,24 +43,28 @@ with_theme(theme_latexfonts()) do
 end
 ##
 progress = Progress(nsteps)
-sol = solve(ψ₀, A, nothing, (rs...) -> F(0.8, 50, rs...), -g,
-    δt, nsteps, save_every, lengths; progress)
+prob = GrossPitaevskiiProblem(ψ₀, A, nothing, (rs...) -> F(50, rs...), -g, δt, lengths)
+
+sol = dropdims(solve(prob, nsteps, save_every; progress), dims=1)
 finish!(progress)
 
-save_animation(abs2.(sol), "test.mp4", scaling=1, share_colorrange=true)
+save_animation(abs2.(sol), "examples/test.mp4", scaling=1, share_colorrange=true)
 
 n = maximum(abs2, sol[:, :, end])
 bistability_curve(n, δ, g, γ)
 ##
-Is_sim = LinRange(extrema(Is_theo)..., 32)
+Is_sim = LinRange(extrema(Is_theo)..., 8)
 Is_sim = vcat(Is_sim, reverse(Is_sim))
 ns_sim = similar(Is_sim)
 
+drive = copy(prob.drive)
+fill!(prob.ψ, 0)
+
 progress = Progress(length(ns_sim) * nsteps)
 for j ∈ eachindex(ns_sim, Is_sim)
-    sol = solve(ψ₀, A, nothing, (rs...) -> F(Is_sim[j], 50, rs...), -g,
-        δt, nsteps, save_every, lengths; progress)
-    ψ₀ .= sol[:, :, end]
+    sol = dropdims(solve(prob, nsteps, save_every; progress), dims=1)
+    ifftshift!(view(prob.ψ, 1, :, :), sol[:, :, end])
+    @. prob.drive = drive * √Is_sim[j]
     ns_sim[j] = maximum(abs2, sol[:, :, end])
 end
 finish!(progress)

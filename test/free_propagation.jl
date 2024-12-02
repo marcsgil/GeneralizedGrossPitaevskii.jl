@@ -2,7 +2,8 @@ function test_free_propagation(ψ₀, xs, ys, δt, nsteps)
     lengths = @. -2 * first((xs, ys))
     ts = range(; start=0, step=δt, length=nsteps + 1)
     A(kx, ky) = -im * (kx^2 + ky^2) / 2
-    ψs = solve(ψ₀, A, nothing, nothing, nothing, δt, nsteps, 1, lengths)
+    prob = GrossPitaevskiiProblem(ψ₀, A, nothing, nothing, nothing, δt, lengths)
+    ψs = dropdims(solve(prob, nsteps, 1); dims=1)
     @test ψs ≈ free_propagation(ψ₀, xs, ys, ts)
 end
 

@@ -1,3 +1,4 @@
 dev_env/
 *Manifest.toml
 .vscode/
+*test.mp4

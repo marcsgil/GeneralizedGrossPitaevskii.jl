@@ -48,72 +48,32 @@ function strang_splitting_step!(ψ, exp_Aδt, exp_Vδt, drive, G_δt, ndrange,
     muladd_func!(ψ, exp_Vδt, nothing; ndrange)
 end
 
-get_drive(::Nothing, As, rs, ks, δt, spatial_dims) = nothing
-
-function get_drive(F, A, rs, ks, δt, spatial_dims)
-    Fs = stack(F(r...) for r ∈ rs)
-    F̃ = fft(Fs, spatial_dims)
-
-    stack(map(eachslice(F̃, dims=spatial_dims), ks) do _F, k
-        _A = A(k...)
-        _A \ (exp(_A * δt) * _F - _F)
-    end)
+function strang_splitting_step!(prob::GrossPitaevskiiProblem, muladd_func!, nonlinear_func!)
+    strang_splitting_step!(prob.ψ, prob.exp_Aδt, prob.exp_Vδt, prob.drive, prob.G_δt, size(prob.ψ),
+        muladd_func!, nonlinear_func!, prob.plan, prob.iplan)
 end
 
-get_exp_Vδt(::Nothing, rs, δt) = nothing
-get_exp_Vδt(V, rs, δt) = stack(exp(V(r...) * δt) for r ∈ rs)
-
-get_Gδt(::Nothing, δt) = nothing
-get_Gδt(G, δt) = G * δt
-
-function solve(ψ₀, A, V, F, G,
-    δt, nsteps, save_every, lengths;
+function solve(prob::GrossPitaevskiiProblem, nsteps, save_every;
     progress=nothing)
 
-    spatial_dims = ntuple(x -> x + 1, ndims(ψ₀) - 1)
-    @assert length(spatial_dims) == length(lengths)
-    sizes = size(ψ₀)[begin+1:end]
-
-    # Construction of the direct grid
-    rs = Iterators.product((fftfreq(n, L) for (n, L) in zip(sizes, lengths))...)
-
-    # Construction of the reciprocal grid
-    ks = Iterators.product((fftfreq(n, 2π * n / L) for (n, L) in zip(sizes, lengths))...)
-
-    # Precompute the exponentials
-    exp_Aδt = stack(exp(A(k...) * δt) for k ∈ ks)
-
-    exp_Vδt = get_exp_Vδt(V, rs, δt / 2)
-    drive = get_drive(F, A, rs, ks, δt, spatial_dims)
-    G_δt = get_Gδt(G, δt / 2)
-
-    # Precompute the sizes
-    ndrange = size(ψ₀)
-
     # Get kernel functions
-    backend = get_backend(ψ₀)
+    backend = get_backend(prob.ψ)
     muladd_func! = muladd_kernel!(backend)
     nonlinear_func! = nonlinear_kernel!(backend)
-
-    # Precompute the FFT plans
-    plan = plan_fft!(ψ₀)
-    iplan = plan_ifft!(ψ₀)
+    spatial_dims = ntuple(x -> x + 1, ndims(prob.ψ) - 1)
 
     # Initialize the result array
-    result = stack(ψ₀ for _ ∈ 1:nsteps÷save_every+1)
-
-    # Initialize the shifted field function
-    ψ = ifftshift(ψ₀, spatial_dims)
+    result = similar(prob.ψ, size(prob.ψ)..., nsteps ÷ save_every + 1)
+    fftshift!(view(result, :, :, :, 1), prob.ψ, spatial_dims)
 
     # Start the time evolution
     for n ∈ 1:nsteps
         # Perform a Strang splitting step
-        strang_splitting_step!(ψ, exp_Aδt, exp_Vδt, drive, G_δt, ndrange,
-            muladd_func!, nonlinear_func!, plan, iplan)
+        strang_splitting_step!(prob, muladd_func!, nonlinear_func!)
 
         # Save the result if necessary
         if n % save_every == 0
-            fftshift!(view(result, :, :, :, n ÷ save_every + 1), ψ, spatial_dims)
+            fftshift!(view(result, :, :, :, n ÷ save_every + 1), prob.ψ, spatial_dims)
         end
 
         # Update the progress bar
@@ -122,21 +82,4 @@ function solve(ψ₀, A, V, F, G,
         end
     end
     result
-end
-
-reshape_or_nothing(::Nothing, size...) = nothing
-reshape_or_nothing(f::Function, size...) = (args...) -> reshape([f(args...)], size...)
-
-function solve(ψ₀::AbstractArray{T1,N}, A, V, F, G,
-    δt, nsteps, save_every, lengths::NTuple{N,T2};
-    progress=nothing) where {T1,T2,N}
-
-    _ψ₀ = reshape(ψ₀, 1, size(ψ₀)...)
-    _A = reshape_or_nothing(A, 1, 1)
-    _V = reshape_or_nothing(V, 1, 1)
-    _F = reshape_or_nothing(F, 1)
-
-    result = solve(_ψ₀, _A, _V, _F, G, δt, nsteps, save_every, lengths; progress=progress)
-
-    dropdims(result, dims=1)
 end
