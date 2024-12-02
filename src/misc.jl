@@ -2,55 +2,22 @@ function get_unionall(::T) where {T}
     getproperty(parentmodule(T), nameof(T))
 end
 
-@kernel function evaluate_on_grid_kernel!(dest, f!, params, rs...)
-    M = ndims(dest)
-    N = length(rs)
-    J = ntuple(i -> axes(dest, i), M - N)
+@kernel function grid_map_kernel!(dest::AbstractArray{T,N}, f!, x) where {T,N}
+    J = ntuple(x -> axes(dest), N - 1)
     K = @index(Global, NTuple)
-
     slice = @view dest[J..., K...]
-
-    f!(slice, (r[k] for (k, r) in zip(K, rs))...; params)
+    f!(slice, x[J[1]])
 end
 
-@kernel function evaluate_on_grid_simple_kernel!(dest, f, params, xs)
+@kernel function grid_map_kernel!(dest::AbstractArray{T,N}, f!, x, y) where {T,N}
+    J = ntuple(x -> :, N - 2)
     K = @index(Global, NTuple)
-    dest[K...] = f(xs[K...]; params)
+    slice = @view dest[J..., K...]
+    f!(slice, x[K[1]], y[K[2]])
 end
 
-function evaluate_on_grid!(dest, f!, rs...; params=nothing)
+function grid_map!(dest, f!, rs...)
     backend = get_backend(dest)
-    func! = evaluate_on_grid_kernel!(backend)
-    #T = get_unionall(dest)
-    func!(dest, f!, params, rs...; ndrange=size(dest)[end-length(rs)+1:end])
+    func! = grid_map_kernel!(backend)
+    func!(dest, f!, rs...; ndrange=size(dest)[end-length(rs)+1:end])
 end
-
-function evaluate_on_grid_simple!(dest, f!, xs)
-    backend = get_backend(dest)
-    func! = evaluate_on_grid_simple_kernel!(backend)
-    #T = get_unionall(dest)
-    func!(dest, f!, params, xs; ndrange=size(dest))
-end
-##
-
-function f!(dest, x; params=nothing)
-    dest[1] = exp(-sum(abs2, x))
-end
-
-f_simple!(x; params=nothing) = exp(-abs2(x))
-##
-xs = LinRange(-3, 3, 512^2)
-dest = Array{Float32}(undef, 1, 512^2)
-dest_simple = Array{Float32}(undef, 512^2)
-
-evaluate_on_grid!(dest, f!, xs)
-evaluate_on_grid_simple!(dest_simple, f_simple!, xs)
-
-dest[1, :] ≈ dest_simple
-##
-
-@code_warntype evaluate_on_grid!(dest, f!, xs)
-
-@benchmark evaluate_on_grid!($dest, $f!, $xs)
-
-@benchmark evaluate_on_grid_simple!($dest_simple, $f_simple!, $xs)

@@ -4,17 +4,13 @@ authors = ["Marcos Gil <marcosgildeoliveira@gmail.com>"]
 version = "0.1.0"
 
 [deps]
-AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
-SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [compat]
-AllocCheck = "0.2.0"
 FFTW = "1.8.0"
 KernelAbstractions = "0.9.29"
 LinearAlgebra = "1.11.0"
 ProgressMeter = "1.10.2"
-SciMLBase = "2.65.1"
