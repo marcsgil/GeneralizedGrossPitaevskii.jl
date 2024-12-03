@@ -4,12 +4,16 @@ authors = ["Marcos Gil <marcosgildeoliveira@gmail.com>"]
 version = "0.1.0"
 
 [deps]
+EllipsisNotation = "da5c29d0-fa7d-589e-88eb-ea29b0a81949"
+ExponentialUtilities = "d4d017d3-3776-5f7e-afef-a10c40355c18"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 
 [compat]
+EllipsisNotation = "1.8.0"
+ExponentialUtilities = "1.27.0"
 FFTW = "1.8.0"
 KernelAbstractions = "0.9.29"
 LinearAlgebra = "1.11.0"

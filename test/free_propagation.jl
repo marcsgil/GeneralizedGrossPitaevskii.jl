@@ -1,10 +1,12 @@
-function test_free_propagation(ψ₀, xs, ys, δt, nsteps)
+function test_free_propagation(u₀, xs, ys, δt, nsteps)
     lengths = @. -2 * first((xs, ys))
     ts = range(; start=0, step=δt, length=nsteps + 1)
-    A(kx, ky) = -im * (kx^2 + ky^2) / 2
-    prob = GrossPitaevskiiProblem(ψ₀, A, nothing, nothing, nothing, δt, lengths)
+    function dispersion!(dest, ks...)
+        dest[1] = sum(abs2, ks) / 2
+    end
+    prob = GrossPitaevskiiProblem(u₀, lengths, δt, dispersion!, nothing, nothing, nothing)
     ψs = dropdims(solve(prob, nsteps, 1); dims=1)
-    @test ψs ≈ free_propagation(ψ₀, xs, ys, ts)
+    @test ψs ≈ free_propagation(dropdims(u₀, dims=1), xs, ys, ts)
 end
 
 @testset "Scalar Free Propagation" begin
@@ -16,7 +18,7 @@ end
         nsteps = rand(50:200)
 
         rs = range(; start=-L / 2, length=N, step=ΔL)
-        ψ₀ = lg(rs, rs, l=rand(1:5)) + lg(rs, rs, l=rand(1:5))
+        ψ₀ = reshape(lg(rs, rs, l=rand(1:5)) + lg(rs, rs, l=rand(1:5)), 1, N, N)
 
         test_free_propagation(ψ₀, rs, rs, δt, nsteps)
     end

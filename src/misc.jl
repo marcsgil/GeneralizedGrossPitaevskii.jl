@@ -21,3 +21,5 @@ function grid_map!(dest, f!, rs...)
     func! = grid_map_kernel!(backend)
     func!(dest, f!, rs...; ndrange=size(dest)[end-length(rs)+1:end])
 end
+
+grid_map!(dest, ::Nothing, rs...) = nothing

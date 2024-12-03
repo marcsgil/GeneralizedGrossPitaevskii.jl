@@ -1,6 +1,7 @@
 module GeneralizedGrossPitaevskii
 
 using KernelAbstractions, FFTW, LinearAlgebra, ProgressMeter
+using ExponentialUtilities, EllipsisNotation
 
 include("misc.jl")
 include("problem.jl")

@@ -1,10 +1,12 @@
 function test_kerr_propagation(ψ₀, xs, ys, δt, nsteps, g)
     lengths = @. -2 * first((xs, ys))
     ts = range(; start=0, step=δt, length=nsteps + 1)
-    A(kx, ky) = -im * (kx^2 + ky^2) / 2
-    prob = GrossPitaevskiiProblem(ψ₀, A, nothing, nothing, g, δt, lengths)
+    function dispersion!(dest, ks...)
+        dest[1] = sum(abs2, ks) / 2
+    end
+    prob = GrossPitaevskiiProblem(ψ₀, lengths, δt, dispersion!, nothing, g, nothing)
     ψs = dropdims(solve(prob, nsteps, 1); dims=1)
-    @test ψs ≈ kerr_propagation(ψ₀, xs, ys, ts, nsteps, g=2g)
+    @test ψs ≈ kerr_propagation(dropdims(ψ₀, dims=1), xs, ys, ts, nsteps, g=-2g[1])
 end
 
 @testset "Scalar Kerr Propagation" begin
@@ -12,12 +14,12 @@ end
         N = 256
         L = 10.0f0
         ΔL = L / N
-        δt = 0.05f0 * rand(Float32)
+        δt = 0.04f0 * rand(Float32)
         nsteps = rand(50:200)
-        g = 4.0f0 * rand(Float32)
+        g = 4.0f0 * rand(Float32, 1, 1)
 
         rs = range(; start=-L / 2, length=N, step=ΔL)
-        ψ₀ = lg(rs, rs, l=rand(-5:5)) + lg(rs, rs, l=rand(-5:5))
+        ψ₀ = reshape(lg(rs, rs, l=rand(-5:5)) + lg(rs, rs, l=rand(-5:5)), 1, N, N)
 
         test_kerr_propagation(ψ₀, rs, rs, δt, nsteps, g)
     end
