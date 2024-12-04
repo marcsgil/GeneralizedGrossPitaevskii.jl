@@ -81,5 +81,6 @@ with_theme(theme_latexfonts()) do
     lines!(Is, dropdims(maximum(abs2, sol, dims=1), dims=1); label="Simulation", color=:red, linewidth=5)
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
     axislegend(ax, position=:rb)
+    #save("bistability.png", fig)
     fig
 end
