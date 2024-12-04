@@ -11,7 +11,7 @@ struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
     spatial_size::NTuple{N,Int}
     param::T7
 
-    function GrossPitaevskiiProblem(dispersion!, potential!, nonlinearity, pump!, u₀, lengths, param=nothing)
+    function GrossPitaevskiiProblem(dispersion!, potential!, nonlinearity, pump!, u₀, lengths, param=())
         _u₀ = complex(u₀)
 
         T1 = typeof(_u₀)

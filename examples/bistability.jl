@@ -1,12 +1,12 @@
 using Revise, BenchmarkTools
 using GeneralizedGrossPitaevskii
-using CairoMakie
+using CairoMakie, StructuredLight, CUDA
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
 end
 
-ns_theo = LinRange(0, 43, 512)
+ns_theo = LinRange(0, 41, 512)
 
 ω₀ = 1483.0f0
 g = 0.01f0
@@ -21,56 +21,65 @@ with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=16)
     ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=4, label="Theoretical")
-
     fig
 end
 ##
 function dispersion!(dest, ks...; param)
-    #tmax, Imax, width, ωₚ, ω₀, kz, γ = param
-    #dest[1] = -γ / 2 + im * (ωₚ - ω₀ * (1 + sum(abs2, ks) / 2kz^2))
-    dest[1] = sum(abs2, ks) / 2
+    tmax, Imax, width, ωₚ, ω₀, kz, γ = param
+    dest[1] = -im * γ / 2 + ωₚ - ω₀ * (1 + sum(abs2, ks) / 2kz^2)
 end
 
 potential! = nothing
 
-nonlinearity = reshape([g], 1, 1)
+nonlinearity = reshape([-g], 1, 1)
 
 function I(t, tmax, Imax)
-    -Imax * t * (t - tmax) * 4 / tmax^2
+    val = -Imax * t * (t - tmax) * 4 / tmax^2
+    val < 0 ? zero(val) : val
 end
 
 function pump!(dest, x; param)
     t, tmax, Imax, width = param
-    dest[1] = (abs(x) ≤ width / 2) * I(t, tmax, Imax)
+    dest[1] = exp(-x^2 / width^2) * √I(t, tmax, Imax)
+end
+
+function pump!(dest, x, y; param)
+    t, tmax, Imax, width = param
+    dest[1] = exp(-(x^2 + y^2) / width^2) * √I(t, tmax, Imax)
 end
 
 L = 256.0f0
 lengths = (L,)
-u₀ = zeros(ComplexF32, 1, 256)
+u₀ = zeros(ComplexF32, 1, 256,)
 
-tmax = 2000
 Imax = maximum(Is_theo)
-width = 80.0f0
+width = 50.0f0
+##
+δt = 0.1f0
+nsteps = 2^15
+nsaves = 512
+tmax = nsteps * δt
 
 param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
-prob = GrossPitaevskiiProblem(dispersion!, potential!, nonlinearity, nothing, u₀, lengths)
-##
-δt = 0.01f0
-nsteps = round(Int, tmax / δt)
-nsaves = 512
-
-prob.ks
-
-prob.spatial_dims
+prob = GrossPitaevskiiProblem(dispersion!, potential!, nonlinearity, pump!, u₀, lengths, param)
 
 sol = solve(prob, StrangSplitting(), nsteps, nsaves, δt)
 ##
-sol = dropdims(sol, dims=1)
+sol = Array(dropdims(sol, dims=1))
 
+sol
 heatmap(abs2.(sol))
 ##
+ts = range(; start=0, step=(nsteps ÷ nsaves) * δt, length=nsaves + 1)
+Is = I.(ts, tmax, Imax)
+color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
 
-Is = dropdims(maximum(abs2, sol, dims=1), dims=1)
-
-lines(Is)
+with_theme(theme_latexfonts()) do
+    fig = Figure(fontsize=24)
+    ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
+    lines!(Is, dropdims(maximum(abs2, sol, dims=1), dims=1); label="Simulation", color=:red, linewidth=5)
+    lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
+    axislegend(ax, position=:rb)
+    fig
+end

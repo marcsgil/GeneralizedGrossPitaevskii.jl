@@ -74,8 +74,9 @@ end
 end
 
 function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt, pump!,
-    matmul_slices_func!, nonlinear_func!, plan, iplan, t)
-    #grid_map!(buffer, pump!, prob.rs...; param=(t, prob.param...))
+    matmul_slices_func!, nonlinear_func!, plan, iplan, t, δt)
+    grid_map!(buffer, pump!, prob.rs...; param=(t, prob.param...))
+    lmul!(δt / 2, buffer)
     matmul_slices_func!(u, exp_Vδt, buffer; ndrange=size(u))
     nonlinear_func!(u, G_δt; ndrange=prob.spatial_size)
     plan * u
@@ -114,10 +115,10 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
         for _ ∈ 1:nsteps÷nsaves
             t += δt
             step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt, prob.pump!,
-                matmul_slices_func!, nonlinear_func!, plan, iplan, t)
+                matmul_slices_func!, nonlinear_func!, plan, iplan, t, δt)
         end
         fftshift!(slice, u)
     end
-
+    
     result
 end

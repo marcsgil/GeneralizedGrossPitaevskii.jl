@@ -2,6 +2,7 @@ module GeneralizedGrossPitaevskii
 
 using KernelAbstractions, FFTW, LinearAlgebra, ProgressMeter
 using ExponentialUtilities, EllipsisNotation
+using BenchmarkTools
 
 include("misc.jl")
 include("problem.jl")
