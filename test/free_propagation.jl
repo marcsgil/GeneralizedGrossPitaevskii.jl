@@ -1,11 +1,11 @@
 function test_free_propagation(u₀, xs, ys, δt, nsteps)
     lengths = @. -2 * first((xs, ys))
     ts = range(; start=0, step=δt, length=nsteps + 1)
-    function dispersion!(dest, ks...)
+    function dispersion!(dest, ks...; param=nothing)
         dest[1] = sum(abs2, ks) / 2
     end
-    prob = GrossPitaevskiiProblem(u₀, lengths, δt, dispersion!, nothing, nothing, nothing)
-    ψs = dropdims(solve(prob, nsteps, 1); dims=1)
+    prob = GrossPitaevskiiProblem(dispersion!, nothing, nothing, nothing, u₀, lengths)
+    ψs = dropdims(solve(prob, StrangSplitting(), nsteps, nsteps, δt); dims=1)
     @test ψs ≈ free_propagation(dropdims(u₀, dims=1), xs, ys, ts)
 end
 

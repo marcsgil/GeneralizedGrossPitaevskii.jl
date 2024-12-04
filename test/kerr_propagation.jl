@@ -1,11 +1,11 @@
 function test_kerr_propagation(ψ₀, xs, ys, δt, nsteps, g)
     lengths = @. -2 * first((xs, ys))
     ts = range(; start=0, step=δt, length=nsteps + 1)
-    function dispersion!(dest, ks...)
+    function dispersion!(dest, ks...; param=nothing)
         dest[1] = sum(abs2, ks) / 2
     end
-    prob = GrossPitaevskiiProblem(ψ₀, lengths, δt, dispersion!, nothing, g, nothing)
-    ψs = dropdims(solve(prob, nsteps, 1); dims=1)
+    prob = GrossPitaevskiiProblem(dispersion!, nothing, g, nothing, ψ₀, lengths)
+    ψs = dropdims(solve(prob, StrangSplitting(), nsteps, nsteps, δt); dims=1)
     @test ψs ≈ kerr_propagation(dropdims(ψ₀, dims=1), xs, ys, ts, nsteps, g=-2g[1])
 end
 
