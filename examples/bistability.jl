@@ -1,6 +1,6 @@
 using Revise, BenchmarkTools
 using GeneralizedGrossPitaevskii
-using CairoMakie, StructuredLight, CUDA
+using CairoMakie, StructuredLight
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
@@ -24,33 +24,27 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-function dispersion!(dest, ks...; param)
+function dispersion(ks, param)
     tmax, Imax, width, ωₚ, ω₀, kz, γ = param
-    dest[1] = -im * γ / 2 + ωₚ - ω₀ * (1 + sum(abs2, ks) / 2kz^2)
+    -im * γ / 2 + ωₚ - ω₀ * (1 + sum(abs2, ks) / 2kz^2)
 end
 
-potential! = nothing
-
-nonlinearity = reshape([g], 1, 1) |> cu
+potential = nothing
 
 function I(t, tmax, Imax)
     val = -Imax * t * (t - tmax) * 4 / tmax^2
     val < 0 ? zero(val) : val
 end
 
-function pump!(dest, x; param)
-    t, tmax, Imax, width = param
-    dest[1] = exp(-x^2 / width^2) * √I(t, tmax, Imax)
-end
-
-function pump!(dest, x, y; param)
-    t, tmax, Imax, width = param
-    dest[1] = exp(-(x^2 + y^2) / width^2) * √I(t, tmax, Imax)
+function pump(x, param, t)
+    tmax, Imax, width = param
+    exp(-sum(abs2, x) / width^2) * √I(t, tmax, Imax)
+    #(sum(abs2, x) ≤ width^2 / 4) * √I(t, tmax, Imax)
 end
 
 L = 256.0f0
-lengths = (L,)
-u₀ = zeros(ComplexF32, 1, 256,) |> cu
+lengths = (L, )
+u₀ = zeros(ComplexF32, ntuple(n->256, length(lengths)))
 
 Imax = maximum(Is_theo)
 width = 50.0f0
@@ -62,13 +56,9 @@ tmax = nsteps * δt
 
 param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
-prob = GrossPitaevskiiProblem(dispersion!, potential!, nonlinearity, pump!, u₀, lengths, param)
+prob = GrossPitaevskiiProblem(dispersion, potential, g, pump, u₀, lengths, param)
 
-sol = solve(prob, StrangSplitting(), nsteps, nsaves, δt)
-##
-sol = Array(dropdims(sol, dims=1))
-
-sol
+sol = solve(prob, StrangSplitting(), nsteps, nsaves, δt; progress=true)
 heatmap(abs2.(sol))
 ##
 ts = range(; start=0, step=(nsteps ÷ nsaves) * δt, length=nsaves + 1)
