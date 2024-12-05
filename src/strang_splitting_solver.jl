@@ -73,7 +73,7 @@ end
 function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt, pump!,
     matmul_slices_func!, nonlinear_func!, plan, iplan, t, δt)
     grid_map!(buffer, pump!, prob.rs...; param=(t, prob.param...))
-    mul_or_nothing!(buffer, δt)
+    mul_or_nothing!(buffer, δt / 2)
     matmul_slices_func!(u, exp_Vδt, buffer; ndrange=size(u))
     nonlinear_func!(u, G_δt; ndrange=prob.spatial_size)
     plan * u

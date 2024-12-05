@@ -31,7 +31,7 @@ end
 
 potential! = nothing
 
-nonlinearity = reshape([g], 1, 1)
+nonlinearity = reshape([g], 1, 1) |> cu
 
 function I(t, tmax, Imax)
     val = -Imax * t * (t - tmax) * 4 / tmax^2
@@ -50,7 +50,7 @@ end
 
 L = 256.0f0
 lengths = (L,)
-u₀ = zeros(ComplexF32, 1, 256,)
+u₀ = zeros(ComplexF32, 1, 256,) |> cu
 
 Imax = maximum(Is_theo)
 width = 50.0f0
