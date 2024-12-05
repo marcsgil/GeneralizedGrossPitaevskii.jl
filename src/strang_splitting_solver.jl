@@ -37,7 +37,7 @@ mul_or_nothing!(x, δt) = rmul!(x, δt)
 
 @kernel function muladd_kernel!(dest, ::Nothing, drive)
     K = @index(Global, NTuple)
-    dest[K...] += drive[K...]
+    dest[K...,..] .+= drive[K...]
 end
 
 @kernel function muladd_kernel!(dest, A, ::Nothing)
@@ -54,7 +54,7 @@ end
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
     ::Nothing) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K...] *= A[K...]
+    dest[K...,..] .*= A[K...]
 end
 
 @kernel function muladd_kernel!(dest, A, b)
@@ -71,7 +71,7 @@ end
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
     b) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K...] += A[K...] * (dest[K...] + b[K...])
+    dest[K...,..] .+= A[K...] * (dest[K...,..] + b[K...])
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing
@@ -85,13 +85,13 @@ end
     end
 
     for i ∈ axes(ψ, 1)
-        ψ[i, K...] *= cis(tmp)
+        ψ[i, K...,..] *= cis(tmp)
     end
 end
 
 @kernel function nonlinear_kernel!(ψ, G_δt::Number)
     K = @index(Global, NTuple)
-    ψ[K...] *= cis(G_δt * abs2(ψ[K...]))
+    ψ[K...,..] *= cis(G_δt * abs2(ψ[K...]))
 end
 
 function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt, pump,
