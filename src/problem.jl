@@ -35,7 +35,7 @@ struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
 end
 
 function Base.show(io::IO,
-    ::GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6}) where {N,T1,T2,T3,T4,T5,T6}
+    ::GrossPitaevskiiProblem{N,T1}) where {N,T1}
     print(io, "$(N)D GrossPitaevskiiProblem{$T1}")
 end
 

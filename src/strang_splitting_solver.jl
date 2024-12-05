@@ -2,10 +2,10 @@ abstract type GGPSolver end
 
 struct StrangSplitting <: GGPSolver end
 
-get_exponential(::Nothing, u, rs, δt; param) = nothing
+get_exponential(::Nothing, ::AbstractArray{eltype,N}, δt, grid::Vararg{Any,M}; param) where {eltype,N,M} = nothing
 
-function get_exponential(f!, u, grid, δt; param)
-    dest = Array{eltype(u),ndims(u) + 1}(undef, size(u, 1), size(u)...)
+function get_exponential(f!, u::AbstractArray{eltype,N}, δt, grid::Vararg{Any,M}; param) where {eltype,N,M}
+    dest = Array{eltype,N + 1}(undef, size(u, 1), size(u)...)
     T = get_unionall(u)
 
     function im_f!(dest, x...; param)
@@ -19,6 +19,13 @@ function get_exponential(f!, u, grid, δt; param)
     end
 
     T(dest)
+end
+
+function get_exponential(f, u::AbstractArray{T,N}, δt, grid::Vararg{Any,N}; param) where {T,N}
+    dest = similar(u)
+    exp_im_f(x...; param) = cis(-δt * f(x...; param))
+    grid_map!(dest, exp_im_f, grid...; param)
+    dest
 end
 
 mul_or_nothing(::Nothing, δt) = nothing
@@ -44,6 +51,12 @@ end
     ψ[i, K...] = tmp
 end
 
+@kernel function matmul_slices_kernel!(ψ::AbstractArray{T1,N}, A::AbstractArray{T2,N},
+    ::Nothing) where {T1,T2,N}
+    K = @index(Global, NTuple)
+    ψ[K...] *= A[K...]
+end
+
 @kernel function matmul_slices_kernel!(ψ, A, b)
     i, K... = @index(Global, NTuple)
 
@@ -53,6 +66,12 @@ end
     end
 
     ψ[i, K...] = tmp
+end
+
+@kernel function matmul_slices_kernel!(ψ::AbstractArray{T1,N}, A::AbstractArray{T2,N},
+    b) where {T1,T2,N}
+    K = @index(Global, NTuple)
+    ψ[K...] += A[K...] * (ψ[K...] + b[K...])
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing
@@ -68,6 +87,11 @@ end
     for i ∈ axes(ψ, 1)
         ψ[i, K...] *= cis(tmp)
     end
+end
+
+@kernel function nonlinear_kernel!(ψ, G_δt::Number)
+    K = @index(Global, NTuple)
+    ψ[K...] *= cis(G_δt * abs2(ψ[K...]))
 end
 
 function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt, pump!,
@@ -95,8 +119,8 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
     buffer = similar_or_nothing(u, prob.pump!)
 
     param = prob.param
-    exp_Aδt = get_exponential(prob.dispersion!, u, prob.ks, δt; param)
-    exp_Vδt = get_exponential(prob.potential!, u, prob.rs, δt / 2; param)
+    exp_Aδt = get_exponential(prob.dispersion!, u, δt, prob.ks...; param)
+    exp_Vδt = get_exponential(prob.potential!, u, δt / 2, prob.rs...; param)
     G_δt = mul_or_nothing(prob.nonlinearity, δt / 2)
 
     plan = plan_fft!(u, prob.spatial_dims)
@@ -108,10 +132,13 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
 
     t = t₀
 
-    #return @benchmark step!($u, $buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt, $prob.pump!,
-    #$matmul_slices_func!, $nonlinear_func!, $plan, $iplan, $t, $δt)
+    """return step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt, prob.pump!,
+                matmul_slices_func!, nonlinear_func!, plan, iplan, t, δt)"""
 
-    for slice ∈ eachslice(_result, dims=ndims(_result))
+    return @benchmark step!($u, $buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt, $prob.pump!,
+        $matmul_slices_func!, $nonlinear_func!, $plan, $iplan, $t, $δt)
+
+    """for slice ∈ eachslice(_result, dims=ndims(_result))
         for _ ∈ 1:nsteps÷nsaves
             t += δt
             step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt, prob.pump!,
@@ -119,6 +146,6 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
         end
         fftshift!(slice, u)
     end
-    
-    result
+
+    result"""
 end

@@ -9,7 +9,7 @@ end
     f!(slice, ntuple(m -> x[m][K[m]], M)...; param)
 end
 
-@kernel function grid_map_kernel!(dest::AbstractArray{T,N}, param, x::Vararg{Any,N}) where {T,N}
+@kernel function grid_map_kernel!(dest::AbstractArray{T,M}, f, param, x::Vararg{Any,M}) where {T,M}
     K = @index(Global, NTuple)
     dest[K...] = f(ntuple(m -> x[m][K[m]], M)...; param)
 end
