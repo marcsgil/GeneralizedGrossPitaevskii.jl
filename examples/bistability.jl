@@ -31,7 +31,7 @@ end
 
 potential! = nothing
 
-nonlinearity = reshape([-g], 1, 1)
+nonlinearity = reshape([g], 1, 1)
 
 function I(t, tmax, Imax)
     val = -Imax * t * (t - tmax) * 4 / tmax^2

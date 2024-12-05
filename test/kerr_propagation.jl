@@ -6,7 +6,7 @@ function test_kerr_propagation(ψ₀, xs, ys, δt, nsteps, g)
     end
     prob = GrossPitaevskiiProblem(dispersion!, nothing, g, nothing, ψ₀, lengths)
     ψs = dropdims(solve(prob, StrangSplitting(), nsteps, nsteps, δt); dims=1)
-    @test ψs ≈ kerr_propagation(dropdims(ψ₀, dims=1), xs, ys, ts, nsteps, g=-2g[1])
+    @test ψs ≈ kerr_propagation(dropdims(ψ₀, dims=1), xs, ys, ts, nsteps, g=2g[1])
 end
 
 @testset "Scalar Kerr Propagation" begin

@@ -21,8 +21,10 @@ function get_exponential(f!, u, grid, δt; param)
     T(dest)
 end
 
-get_Gδt(::Nothing, δt) = nothing
-get_Gδt(nonlinearity, δt) = nonlinearity * δt
+mul_or_nothing(::Nothing, δt) = nothing
+mul_or_nothing(x, δt) = x * δt
+mul_or_nothing!(x, δt) = lmul!(δt, x)
+mul_or_nothing!(::Nothing, δt) = nothing
 
 @kernel matmul_slices_kernel!(dest, ::Nothing, ::Nothing) = nothing
 
@@ -53,11 +55,6 @@ end
     ψ[i, K...] = tmp
 end
 
-@kernel function matmul_slices_kernel!(ψ, A, b)
-    j, K... = @index(Global, NTuple)
-    ψ[j, K...] += b[j, K...]
-end
-
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing
 
 @kernel function nonlinear_kernel!(ψ, G_δt)
@@ -65,7 +62,7 @@ end
 
     tmp = zero(eltype(ψ))
     for n ∈ axes(G_δt, 2), m ∈ axes(G_δt, 1)
-        tmp -= G_δt[m, n] * conj(ψ[m, K...]) * ψ[n, K...]
+        tmp += G_δt[m, n] * conj(ψ[m, K...]) * ψ[n, K...]
     end
 
     for i ∈ axes(ψ, 1)
@@ -76,7 +73,7 @@ end
 function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt, pump!,
     matmul_slices_func!, nonlinear_func!, plan, iplan, t, δt)
     grid_map!(buffer, pump!, prob.rs...; param=(t, prob.param...))
-    lmul!(δt / 2, buffer)
+    mul_or_nothing!(buffer, δt)
     matmul_slices_func!(u, exp_Vδt, buffer; ndrange=size(u))
     nonlinear_func!(u, G_δt; ndrange=prob.spatial_size)
     plan * u
@@ -100,7 +97,7 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
     param = prob.param
     exp_Aδt = get_exponential(prob.dispersion!, u, prob.ks, δt; param)
     exp_Vδt = get_exponential(prob.potential!, u, prob.rs, δt / 2; param)
-    G_δt = get_Gδt(prob.nonlinearity, δt / 2)
+    G_δt = mul_or_nothing(prob.nonlinearity, δt / 2)
 
     plan = plan_fft!(u, prob.spatial_dims)
     iplan = inv(plan)
@@ -110,6 +107,9 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
     nonlinear_func! = nonlinear_kernel!(backend)
 
     t = t₀
+
+    #return @benchmark step!($u, $buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt, $prob.pump!,
+    #$matmul_slices_func!, $nonlinear_func!, $plan, $iplan, $t, $δt)
 
     for slice ∈ eachslice(_result, dims=ndims(_result))
         for _ ∈ 1:nsteps÷nsaves
