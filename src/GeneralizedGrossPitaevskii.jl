@@ -6,10 +6,8 @@ using BenchmarkTools
 
 include("misc.jl")
 include("problem.jl")
-export GrossPitaevskiiProblem
+export GrossPitaevskiiProblem, DiagonalNoise
 include("strang_splitting_solver.jl")
 export solve, StrangSplitting
-include("stochastic_problem.jl")
-export DiagonalNoise, StochasticGrossPitaevskiiProblem
 
 end

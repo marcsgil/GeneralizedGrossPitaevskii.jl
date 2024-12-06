@@ -1,4 +1,17 @@
-struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
+struct DiagonalNoise{Tfunc,Tnoise}
+    func::Tfunc
+    function DiagonalNoise(func::Tfunc, ::Type{Tnoise}) where {Tfunc,Tnoise}
+        new{Tfunc,Tnoise}(func)
+    end
+end
+
+function (σ!::DiagonalNoise)(ξ, buffer, u, p, t)
+    σ!.func(buffer, u, p, t)
+    randn!(ξ)
+    ξ .*= buffer
+end
+
+struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7,T8}
     u0::T1
     lengths::NTuple{N,T2}
     rs::NTuple{N,Frequencies{T2}}
@@ -10,8 +23,9 @@ struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
     spatial_dims::NTuple{N,Int}
     spatial_size::NTuple{N,Int}
     param::T7
+    noise_func::T8
 
-    function GrossPitaevskiiProblem(dispersion, potential, nonlinearity, pump, u0, lengths, param=())
+    function GrossPitaevskiiProblem(dispersion, potential, nonlinearity, pump, u0, lengths, param=(); noise_func=nothing)
         _u0 = complex(u0)
 
         T1 = typeof(_u0)
@@ -21,6 +35,7 @@ struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
         T5 = typeof(nonlinearity)
         T6 = typeof(pump)
         T7 = typeof(param)
+        T8 = typeof(noise_func)
 
         N = length(lengths)
         spatial_dims = ntuple(n -> n - N + ndims(u0), N)
@@ -29,8 +44,8 @@ struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7}
         rs = ntuple(j -> fftfreq(spatial_size[j], T2(lengths[j])), N)
         ks = ntuple(j -> fftfreq(spatial_size[j], T2(2π * spatial_size[j] / lengths[j])), N)
 
-        new{N,T1,T2,T3,T4,T5,T6,T7}(_u0, lengths, rs, ks,
-            dispersion, potential, nonlinearity, pump, spatial_dims, spatial_size, param)
+        new{N,T1,T2,T3,T4,T5,T6,T7,T8}(_u0, lengths, rs, ks,
+            dispersion, potential, nonlinearity, pump, spatial_dims, spatial_size, param, noise_func)
     end
 end
 

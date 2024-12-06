@@ -141,10 +141,10 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
     """return step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt, prob.pump!,
                 muladd_func!, nonlinear_func!, plan, iplan, t, δt)"""
 
-    """return @benchmark step!($u, $buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt, $prob.pump!,
-        $muladd_func!, $nonlinear_func!, $plan, $iplan, $t, $δt)"""
+    return @benchmark step!($u, $buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt, $prob.pump!,
+        $muladd_func!, $nonlinear_func!, $plan, $iplan, $t, $δt)
 
-    p = _Progress(progress, nsteps)
+    """p = _Progress(progress, nsteps)
     for slice ∈ eachslice(_result, dims=ndims(_result))
         for _ ∈ 1:nsteps÷nsaves
             t += δt
@@ -156,5 +156,5 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, nsteps, ns
     end
     finish!(p)
 
-    result
+    result"""
 end
