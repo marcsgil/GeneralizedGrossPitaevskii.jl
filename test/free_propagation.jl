@@ -1,12 +1,12 @@
 function test_free_propagation(u0, xs, ys, δt, nsteps)
     lengths = @. -2 * first((xs, ys))
-    ts = range(; start=0, step=δt, length=nsteps + 1)
-    dispersion(ks, param) = sum(abs2, ks) / 2
-    prob = GrossPitaevskiiProblem(dispersion, nothing, nothing, nothing, u0, lengths)
-    sol = solve(prob, StrangSplitting(), nsteps, nsteps, δt; progress=false)
+    prob = free_propagation_template(u0, lengths)
+    solver = StrangSplitting(nsteps, δt)
+    tspan = (0, nsteps * δt)
+    ts, sol = solve(prob, solver, tspan; show_progress=false)
     @test sol ≈ free_propagation(u0, xs, ys, ts)
     vector_prob = scalar2vector(prob)
-    vector_sol = solve(vector_prob, StrangSplitting(), nsteps, nsteps, δt; progress=false)
+    ts, vector_sol = solve(vector_prob, solver, tspan; show_progress=false)
     @test sol ≈ dropdims(vector_sol, dims=1)
 end
 

@@ -3,8 +3,8 @@
     f! = scalar2vector(f)
     xs = rand(128)
     dest1 = similar(xs)
-    GeneralizedGrossPitaevskii.grid_map!(dest1, f, xs, nothing)
+    GeneralizedGrossPitaevskii.grid_map!(dest1, f, (xs,), nothing)
     dest2 = similar(xs, 1, length(xs))
-    GeneralizedGrossPitaevskii.grid_map!(dest2, f!, xs, nothing)
+    GeneralizedGrossPitaevskii.grid_map!(dest2, f!, (xs,), nothing)
     @test dropdims(dest2, dims=1) == dest1
 end

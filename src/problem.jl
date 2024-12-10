@@ -1,59 +1,69 @@
-struct DiagonalNoise{Tfunc,Tnoise}
-    func::Tfunc
-    function DiagonalNoise(func::Tfunc, ::Type{Tnoise}) where {Tfunc,Tnoise}
-        new{Tfunc,Tnoise}(func)
-    end
+abstract type AbstractGrossPitaevskiiProblem{M,N,T} end
+
+Base.size(prob::AbstractGrossPitaevskiiProblem, args...) = size(prob.u0, args...)
+Base.ndims(::AbstractGrossPitaevskiiProblem{M,N}) where {M,N} = N
+Base.eltype(::AbstractGrossPitaevskiiProblem{M,N,T}) where {M,N,T} = T
+
+"""
+    nsdims(prob)
+
+Return the number of spatial dimensions of the problem.
+"""
+nsdims(::AbstractGrossPitaevskiiProblem{M}) where {M} = M
+
+"""
+    sdims(prob)
+
+Return the spatial dimensions of the problem.
+"""
+function sdims end
+
+"""
+    ssize(prob[, dim])
+
+Return a tuple representing the spatial size of the problem.
+If `dim` is specified, return the size of the `dim`-th spatial dimension.
+"""
+function ssize(prob::AbstractGrossPitaevskiiProblem{M}) where {M}
+    J = sdims(prob)
+    ntuple(m -> size(prob.u0, J[m]), M)
+end
+ssize(prob, dim) = ssize(prob)[dim]
+
+function direct_grid(prob::AbstractGrossPitaevskiiProblem{M}) where {M}
+    ntuple(m -> fftfreq(ssize(prob, m), prob.lengths[m]), M)
 end
 
-function (σ!::DiagonalNoise)(ξ, buffer, u, p, t)
-    σ!.func(buffer, u, p, t)
-    randn!(ξ)
-    ξ .*= buffer
+function reciprocal_grid(prob::AbstractGrossPitaevskiiProblem{M}) where {M}
+    ntuple(m -> fftfreq(ssize(prob, m), 2π * ssize(prob, m) / prob.lengths[m]), M)
 end
 
-struct GrossPitaevskiiProblem{N,T1,T2,T3,T4,T5,T6,T7,T8}
+convert2complex(x::AbstractArray{T}) where {T} = complex(float(x))
+convert2complex(x::AbstractArray{T}) where {T<:AbstractFloat} = complex(x)
+
+struct GrossPitaevskiiProblem{M,N,T<:Complex,
+    T1<:AbstractArray{T,N},T2<:Real,T3,T4,T5,T6,T7} <: AbstractGrossPitaevskiiProblem{M,N,T}
     u0::T1
-    lengths::NTuple{N,T2}
-    rs::NTuple{N,Frequencies{T2}}
-    ks::NTuple{N,Frequencies{T2}}
+    lengths::NTuple{M,T2}
     dispersion::T3
     potential::T4
     nonlinearity::T5
     pump::T6
-    spatial_dims::NTuple{N,Int}
-    spatial_size::NTuple{N,Int}
     param::T7
-    noise_func::T8
-
-    function GrossPitaevskiiProblem(dispersion, potential, nonlinearity, pump, u0, lengths, param=(); noise_func=nothing)
-        _u0 = complex(u0)
-
-        T1 = typeof(_u0)
-        T2 = promote_type(float.(typeof.(lengths))...)
-        T3 = typeof(dispersion)
-        T4 = typeof(potential)
-        T5 = typeof(nonlinearity)
-        T6 = typeof(pump)
-        T7 = typeof(param)
-        T8 = typeof(noise_func)
-
-        N = length(lengths)
-        spatial_dims = ntuple(n -> n - N + ndims(u0), N)
-        spatial_size = ntuple(n -> size(u0, n - N + ndims(u0)), N)
-
-        rs = ntuple(j -> fftfreq(spatial_size[j], T2(lengths[j])), N)
-        ks = ntuple(j -> fftfreq(spatial_size[j], T2(2π * spatial_size[j] / lengths[j])), N)
-
-        new{N,T1,T2,T3,T4,T5,T6,T7,T8}(_u0, lengths, rs, ks,
-            dispersion, potential, nonlinearity, pump, spatial_dims, spatial_size, param, noise_func)
-    end
 end
+
+GrossPitaevskiiProblem(u0::AbstractArray{T,N}, lengths,
+    dispersion, potential, nonlinearity, pump, param=nothing) where {T<:Complex,N} =
+    GrossPitaevskiiProblem(u0, lengths, dispersion, potential, nonlinearity, pump, param)
 
 function Base.show(io::IO,
-    ::GrossPitaevskiiProblem{N,T1}) where {N,T1}
-    print(io, "$(N)D GrossPitaevskiiProblem{$T1}")
+    ::GrossPitaevskiiProblem{M,N,T,T1}) where {M,N,T,T1}
+    print(io, "GrossPitaevskiiProblem{$M,$N,$T,$(get_unionall(T1))}")
 end
 
-function update_initial_condition!(prob::GrossPitaevskiiProblem, new_u0)
-    copy!(prob.u0, new_u0)
+sdims(::GrossPitaevskiiProblem{M,N}) where {M,N} = ntuple(m -> m - M + N, M)
+
+function evaluate_pump!(dest, prob, args...)
+    rs = direct_grid(prob)
+    grid_map!(dest, prob.pump, rs, prob.param, args...)
 end

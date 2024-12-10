@@ -26,7 +26,7 @@ end
 ##
 function dispersion(ks, param)
     tmax, Imax, width, ωₚ, ω₀, kz, γ = param
-    -im * γ / 2 + ωₚ - ω₀ * (1 + sum(abs2, ks) / 2kz^2)
+    -im * γ / 2 + ω₀ * (1 + sum(abs2, ks) / 2kz^2) - ωₚ
 end
 
 potential = nothing
@@ -39,27 +39,26 @@ end
 function pump(x, param, t)
     tmax, Imax, width = param
     exp(-sum(abs2, x) / width^2) * √I(t, tmax, Imax)
-    #(sum(abs2, x) ≤ width^2 / 4) * √I(t, tmax, Imax)
 end
 
 L = 256.0f0
-lengths = (L, )
-u₀ = zeros(ComplexF32, ntuple(n->256, length(lengths)))
+lengths = (L,)
+u0 = zeros(ComplexF32, ntuple(n -> 256, length(lengths)))
 
 Imax = maximum(Is_theo)
 width = 50.0f0
 ##
 δt = 0.1f0
-nsteps = 2^15
-nsaves = 512
-tmax = nsteps * δt
+nsaves = 1024
+tspan = (0, 4000)
+tmax = tspan[end]
 
 param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
-prob = GrossPitaevskiiProblem(dispersion, potential, g, pump, u₀, lengths, param)
+prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
 solver = StrangSplitting(nsaves, δt)
 
-ts, sol = solve(prob, solver, (0, tmax))
+ts, sol = solve(prob, solver, tspan)
 heatmap(abs2.(sol))
 ##
 Is = I.(ts, tmax, Imax)

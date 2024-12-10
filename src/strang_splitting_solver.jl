@@ -89,7 +89,7 @@ end
 
     tmp = zero(eltype(ψ))
     for n ∈ axes(G_δt, 2), m ∈ axes(G_δt, 1)
-        tmp += G_δt[m, n] * conj(ψ[m, K...]) * ψ[n, K...]
+        tmp -= G_δt[m, n] * conj(ψ[m, K...]) * ψ[n, K...]
     end
 
     for i ∈ axes(ψ, 1)
@@ -99,19 +99,19 @@ end
 
 @kernel function nonlinear_kernel!(ψ, G_δt::Number)
     K = @index(Global, NTuple)
-    ψ[K..., ..] *= cis(G_δt * abs2(ψ[K...]))
+    ψ[K..., ..] *= cis(-G_δt * abs2(ψ[K...]))
 end
 
 function step!(u, buffer, prob::GrossPitaevskiiProblem, solver::StrangSplitting, exp_Aδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t)
-    grid_map!(buffer, prob.pump, prob.rs, prob.param, t)
+    grid_map!(buffer, prob.pump, direct_grid(prob), prob.param, t)
     mul_or_nothing!(buffer, solver.δt / 2)
     muladd_func!(u, exp_Vδt, buffer; ndrange=size(u))
-    nonlinear_func!(u, G_δt; ndrange=prob.spatial_size)
+    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     plan * u
     muladd_func!(u, exp_Aδt, nothing; ndrange=size(u))
     iplan * u
-    nonlinear_func!(u, G_δt; ndrange=prob.spatial_size)
+    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     muladd_func!(u, exp_Vδt, buffer; ndrange=size(u))
 end
 
@@ -125,15 +125,15 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
     _result = @view result[ntuple(n -> :, ndims(prob.u0))..., begin+1:end]
 
     u = similar(prob.u0)
-    ifftshift!(u, prob.u0, prob.spatial_dims)
+    ifftshift!(u, prob.u0, sdims(prob))
     buffer = similar_or_nothing(u, prob.pump)
 
     param = prob.param
-    exp_Aδt = get_exponential(u, prob.dispersion, prob.ks, param, solver.δt)
-    exp_Vδt = get_exponential(u, prob.potential, prob.rs, param, solver.δt / 2)
+    exp_Aδt = get_exponential(u, prob.dispersion, reciprocal_grid(prob), param, solver.δt)
+    exp_Vδt = get_exponential(u, prob.potential, direct_grid(prob), param, solver.δt / 2)
     G_δt = mul_or_nothing(prob.nonlinearity, solver.δt / 2)
 
-    plan = plan_fft!(u, prob.spatial_dims)
+    plan = plan_fft!(u, sdims(prob))
     iplan = inv(plan)
 
     backend = get_backend(prob.u0)
@@ -152,7 +152,7 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
                 muladd_func!, nonlinear_func!, plan, iplan, t)
             _next!(progress, show_progress)
         end
-        fftshift!(slice, u, prob.spatial_dims)
+        fftshift!(slice, u, sdims(prob))
         ts[n+1] = t
     end
     finish!(progress)
