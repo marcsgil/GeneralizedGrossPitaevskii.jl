@@ -28,19 +28,20 @@ function plato_pump(x, xmin, xmax, width)
     end
 end
 
-function bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, t_end, solver)
+function bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, t_stop, t_end, solver)
     lengths = (L,)
 
     u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
 
     function pump(x, param, t)
-        δ₀, m, γ, kₚ, t_cycle, Imax = param
-        (x[1] ≤ -7) * √I(t, t_cycle, Imax) * cis(kₚ * x[1])
+        δ₀, m, γ, kₚ, t_cycle, t_stop, Imax = param
+        _t = t > t_stop ? t_stop : t
+        (x[1] ≤ -7) * √I(_t, t_cycle, Imax) * cis(kₚ * x[1])
         #(abs(x[1]) ≤ 200) * √I(t, t_cycle, Imax) #* cis(kₚ * x[1])
         #exp(-sum(abs2,x) / 200^2) * √I(t, t_cycle, Imax) * cis(-kₚ * x[1])
     end
 
-    param = (δ₀, m, γ, kₚ, t_cycle, Imax)
+    param = (δ₀, m, γ, kₚ, t_cycle, t_stop, Imax)
     prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
 
     tspan = (0, t_end)
@@ -58,19 +59,23 @@ m = ħ^2 / (2 * 1.29f0)
 δ₀ = ωₚ - ω₀
 δ = δ₀ - ħ * kₚ^2 / 2m
 
-N = 256
+N = 512
 
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 Imax = 90.0f0
-t_cycle = 10000
-t_end = 9500
-solver = StrangSplitting(1024, 1.0f0)
+t_cycle = 300
+tstop = 285
+t_end = 1000
+solver = StrangSplitting(1024, 2.0f-2)
 
-ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, t_end, solver)
+ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
 heatmap(rs, ts, (abs2.(sol)))
 ##
-Is = I.(ts, t_cycle, Imax)
+
+_ts = filter(t -> t ≤ tstop, ts)
+
+Is = I.(_ts, t_cycle, Imax)
 color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
 
 function bistability_curve(n, δ, g, γ)
@@ -85,9 +90,9 @@ ns = abs2.(sol[N÷4, :])
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=24)
     ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
-    lines!(Is, ns; label="Simulation", color=:red, linewidth=5)
+    lines!(Is, ns[1:length(Is)]; label="Simulation", color=:red, linewidth=5)
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
-    axislegend(ax, position=:rb)
+    axislegend(ax, position=:lt)
     #save("bistability.png", fig)
     fig
 end
@@ -104,31 +109,14 @@ function dispersion_relation(k, kₚ, g, n₀, δ, m, branch::Bool)
     v * k + pm * √(ħ^2 * k^4 / 4m^2 + (cₛ * k)^2 + (gn₀ - δ) * (3gn₀ - δ))
 end
 
-ks = LinRange(-1, 2, 512)
+ks = LinRange(-1, 1, 512)
 
 ωs₊ = dispersion_relation.(ks, kₚ, g, ns[end], δ, m, true)
 ωs₋ = dispersion_relation.(ks, kₚ, g, ns[end], δ, m, false)
 
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
-ylims!(-1, 1)
+#ylims!(-1, 1)
 lines!(ax, ks, ωs₊)
 lines!(ax, ks, ωs₋)
 fig
-##
-u0 = sol[:, end]
-
-function pump(x, param, t)
-    δ₀, m, γ, kₚ, t_cycle, Imax, t_end = param
-    ((x[1] ≤ 0) * cis(kₚ * x[1])) * √I(t_end, t_cycle, Imax)
-end
-
-param = (δ₀, m, γ, kₚ, t_cycle, Imax, t_end)
-prob = GrossPitaevskiiProblem(u0, (L,), dispersion, potential, g, pump, param)
-
-ts, sol = solve(prob, solver, (0, 1000))
-
-heatmap(rs, ts, abs2.(sol))
-##
-lines(rs, abs2.(sol[:, end]))
-##
