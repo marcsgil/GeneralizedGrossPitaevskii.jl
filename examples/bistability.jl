@@ -57,11 +57,11 @@ tmax = nsteps * δt
 param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
 prob = GrossPitaevskiiProblem(dispersion, potential, g, pump, u₀, lengths, param)
+solver = StrangSplitting(nsaves, δt)
 
-sol = solve(prob, StrangSplitting(), nsteps, nsaves, δt; progress=true)
+ts, sol = solve(prob, solver, (0, tmax))
 heatmap(abs2.(sol))
 ##
-ts = range(; start=0, step=(nsteps ÷ nsaves) * δt, length=nsaves + 1)
 Is = I.(ts, tmax, Imax)
 color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
 
