@@ -102,10 +102,10 @@ end
     ψ[K..., ..] *= cis(-G_δt * abs2(ψ[K...]))
 end
 
-function step!(u, buffer, prob::GrossPitaevskiiProblem, solver::StrangSplitting, exp_Aδt, exp_Vδt, G_δt,
-    muladd_func!, nonlinear_func!, plan, iplan, t)
+function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt,
+    muladd_func!, nonlinear_func!, plan, iplan, t, δt)
     grid_map!(buffer, prob.pump, direct_grid(prob), prob.param, t)
-    mul_or_nothing!(buffer, solver.δt / 2)
+    mul_or_nothing!(buffer, δt / 2)
     muladd_func!(u, exp_Vδt, buffer; ndrange=size(u))
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     plan * u
@@ -128,10 +128,18 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
     ifftshift!(u, prob.u0, sdims(prob))
     buffer = similar_or_nothing(u, prob.pump)
 
+    ts = Vector{typeof(solver.δt)}(undef, solver.nsaves + 1)
+    ts[1] = tspan[1]
+    t = tspan[1]
+
+    ΔT = (tspan[2] - tspan[1]) / (solver.nsaves)
+    steps_per_save = round(Int, ΔT / solver.δt, RoundUp)
+    δt̅ = ΔT / steps_per_save
+
     param = prob.param
-    exp_Aδt = get_exponential(u, prob.dispersion, reciprocal_grid(prob), param, solver.δt)
-    exp_Vδt = get_exponential(u, prob.potential, direct_grid(prob), param, solver.δt / 2)
-    G_δt = mul_or_nothing(prob.nonlinearity, solver.δt / 2)
+    exp_Aδt = get_exponential(u, prob.dispersion, reciprocal_grid(prob), param, δt̅)
+    exp_Vδt = get_exponential(u, prob.potential, direct_grid(prob), param, δt̅ / 2)
+    G_δt = mul_or_nothing(prob.nonlinearity, δt̅ / 2)
 
     plan = plan_fft!(u, sdims(prob))
     iplan = inv(plan)
@@ -140,16 +148,12 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
     muladd_func! = muladd_kernel!(backend)
     nonlinear_func! = nonlinear_kernel!(backend)
 
-    ts = Vector{typeof(solver.δt)}(undef, solver.nsaves + 1)
-    ts[1] = tspan[1]
-    t = tspan[1]
-    nsteps = round(Int, tspan[2] / solver.δt)
-    progress = Progress(nsteps)
+    progress = Progress(steps_per_save * solver.nsaves)
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
-        for _ ∈ 1:nsteps÷solver.nsaves
-            t += solver.δt
+        for _ ∈ 1:steps_per_save
+            t += δt̅
             step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt,
-                muladd_func!, nonlinear_func!, plan, iplan, t)
+                muladd_func!, nonlinear_func!, plan, iplan, t, δt̅)
             _next!(progress, show_progress)
         end
         fftshift!(slice, u, sdims(prob))
