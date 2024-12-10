@@ -79,7 +79,7 @@ end
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
     b) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K..., ..] .+= A[K...] * (dest[K..., ..] + b[K...])
+    dest[K..., ..] .= A[K...] * (dest[K..., ..] + b[K...])
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing

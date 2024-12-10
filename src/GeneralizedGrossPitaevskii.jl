@@ -5,6 +5,7 @@ using ExponentialUtilities, EllipsisNotation
 using BenchmarkTools
 
 include("misc.jl")
+export damping_potential
 include("problem.jl")
 export GrossPitaevskiiProblem, DiagonalNoise
 include("strang_splitting_solver.jl")
