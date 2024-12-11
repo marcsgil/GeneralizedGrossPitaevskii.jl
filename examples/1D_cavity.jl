@@ -11,7 +11,7 @@ function dispersion(ks, param)
 end
 
 function potential(rs, param)
-    100 * damping_potential(rs, -L / 2, L / 2, 10) #- 0.85 / ħ * exp(-sum(abs2, rs) / 0.75^2)
+    10 * damping_potential(rs, -L / 2, L / 2, 0.1) - 0.85 / ħ * exp(-sum(abs2, rs) / 0.75^2)
 end
 
 function I(t, t_cycle, Imax)
@@ -31,7 +31,7 @@ end
 function pump(x, param, t)
     δ₀, m, γ, kₚ, t_cycle, t_stop, Imax = param
     _t = t > t_stop ? t_stop : t
-    (x[1] ≤ -7) * √I(_t, t_cycle, Imax) * cis(kₚ * x[1])
+    (x[1] ≤ -7) * √I(_t, t_cycle, Imax) * cis(kₚ * x[1]) * (1 + 3 * (x[1] ≤ -390))
     #(abs(x[1]) ≤ 200) * √I(t, t_cycle, Imax) #* cis(kₚ * x[1])
     #exp(-sum(abs2,x) / 200^2) * √I(t, t_cycle, Imax) * cis(-kₚ * x[1])
 end
@@ -62,18 +62,15 @@ rs = range(; start=-L / 2, step=L / N, length=N)
 
 Imax = 90.0f0
 t_cycle = 300.0f0
-tstop = 285.0f0
-t_end = 1000.0f0
-solver = StrangSplittingB(1024, 4.9f-1)
-
-#bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
-
-#@code_warntype bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+tstop = 298.0f0
+t_end = 600.0f0
+solver = StrangSplittingB(1024, 4.0f-1)
 
 ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
-heatmap(rs, ts, (abs2.(sol)))
+#heatmap(rs, ts, (abs2.(sol)), colorrange=(0, 2000))
 ##
-
+lines(abs2.(sol[:, end]))
+##
 _ts = filter(t -> t ≤ tstop, ts)
 
 Is = I.(_ts, t_cycle, Imax)
