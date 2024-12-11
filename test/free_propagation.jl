@@ -1,13 +1,15 @@
 function test_free_propagation(u0, xs, ys, δt, nsteps)
     lengths = @. -2 * first((xs, ys))
     prob = free_propagation_template(u0, lengths)
-    solver = StrangSplitting(nsteps, δt)
     tspan = (0, nsteps * δt)
-    ts, sol = solve(prob, solver, tspan; show_progress=false)
-    @test sol ≈ free_propagation(u0, xs, ys, ts)
-    vector_prob = scalar2vector(prob)
-    ts, vector_sol = solve(vector_prob, solver, tspan; show_progress=false)
-    @test sol ≈ dropdims(vector_sol, dims=1)
+    for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
+        solver = Tsolver(nsteps, δt)
+        ts, sol = solve(prob, solver, tspan; show_progress=false)
+        @test sol ≈ free_propagation(u0, xs, ys, ts)
+        vector_prob = scalar2vector(prob)
+        ts, vector_sol = solve(vector_prob, solver, tspan; show_progress=false)
+        @test sol ≈ dropdims(vector_sol, dims=1)
+    end
 end
 
 @testset "Scalar Free Propagation" begin

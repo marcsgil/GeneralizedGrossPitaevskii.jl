@@ -1,13 +1,17 @@
 function test_kerr_propagation(u0, xs, ys, δt, nsteps, g)
     lengths = @. -2 * first((xs, ys))
     prob = kerr_propagation_template(u0, lengths, g)
-    solver = StrangSplitting(nsteps, δt)
+    solver = StrangSplittingA(nsteps, δt)
     tspan = (0, nsteps * δt)
-    ts, sol = solve(prob, solver, tspan; show_progress=false)
-    @test sol ≈ kerr_propagation(u0, xs, ys, ts, nsteps; g=-g)
-    vector_prob = scalar2vector(prob)
-    ts, vector_sol = solve(vector_prob, solver, tspan; show_progress=false)
-    @test sol ≈ dropdims(vector_sol, dims=1)
+
+    for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
+        solver = Tsolver(nsteps, δt)
+        ts, sol = solve(prob, solver, tspan; show_progress=false)
+        @test sol ≈ kerr_propagation(u0, xs, ys, ts, nsteps; g=-g)
+        vector_prob = scalar2vector(prob)
+        ts, vector_sol = solve(vector_prob, solver, tspan; show_progress=false)
+        @test sol ≈ dropdims(vector_sol, dims=1)
+    end
 end
 
 @testset "Scalar Kerr Propagation" begin

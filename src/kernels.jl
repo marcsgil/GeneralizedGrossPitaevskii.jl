@@ -1,42 +1,42 @@
-@kernel muladd_kernel!(dest, ::Nothing, ::Nothing) = nothing
+@kernel muladd_kernel!(dest, ::Nothing, ::Nothing, ::Nothing, δt) = nothing
 
-@kernel function muladd_kernel!(dest, ::Nothing, drive)
+@kernel function muladd_kernel!(dest, ::Nothing, F_next, F_now, δt)
     K = @index(Global, NTuple)
-    dest[K..., ..] .+= drive[K...]
+    dest[K..., ..] .+= (F_next[K...] + F_next[K...]) * δt / 2
 end
 
-@kernel function muladd_kernel!(dest, A, ::Nothing)
+@kernel function muladd_kernel!(dest, exp_Dδt, ::Nothing, ::Nothing, δt)
     i, K... = @index(Global, NTuple)
 
     tmp = zero(eltype(dest))
     for j ∈ axes(dest, 1)
-        tmp += A[i, j, K...] * dest[j, K...]
+        tmp += exp_Dδt[i, j, K...] * dest[j, K...]
     end
 
     dest[i, K...] = tmp
 end
 
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
-    ::Nothing) where {T1,T2,N}
+    ::Nothing, ::Nothing, δt) where {T1,T2,N}
     K = @index(Global, NTuple)
     dest[K..., ..] .*= A[K...]
 end
 
-@kernel function muladd_kernel!(dest, A, b)
+@kernel function muladd_kernel!(dest, exp_Vδt, F_next, F_now, δt)
     i, K... = @index(Global, NTuple)
 
     tmp = zero(eltype(dest))
     for j ∈ axes(dest, 1)
-        tmp += A[i, j, K...] * (dest[j, K...] + b[j, K...])
+        tmp += exp_Vδt[i, j, K...] * (dest[j, K...] + F_now[j, K...] * δt / 2) + F_next[j, K...] * δt / 2
     end
 
     dest[i, K...] = tmp
 end
 
-@kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
-    b) where {T1,T2,N}
+@kernel function muladd_kernel!(dest::AbstractArray{T1,N}, exp_Vδt::AbstractArray{T2,N},
+    F_next, F_now, δt) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K..., ..] .= A[K...] * (dest[K..., ..] + b[K...])
+    dest[K..., ..] .= exp_Vδt[K...] * (dest[K..., ..] + F_now[K...] * δt / 2) + F_next[K...] * δt / 2
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing

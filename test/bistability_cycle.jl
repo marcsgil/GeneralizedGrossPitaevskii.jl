@@ -25,6 +25,10 @@ using GeneralizedGrossPitaevskii
         exp(-sum(abs2, x) / width^2) * √I(t, tmax, Imax)
     end
 
+    function bistability_curve(n, δ, g, γ)
+        n * (γ^2 / 4 + (g * n - δ)^2)
+    end
+
     L = 256.0f0
     lengths = (L,)
     u0 = zeros(ComplexF32, ntuple(n -> 256, length(lengths)))
@@ -40,21 +44,20 @@ using GeneralizedGrossPitaevskii
     param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
     prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
-    solver = StrangSplitting(nsaves, δt)
 
-    ts, sol = solve(prob, solver, tspan; show_progress=false)
+    for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
+        solver = Tsolver(nsaves, δt)
+        ts, sol = solve(prob, solver, tspan; show_progress=false)
 
-    function bistability_curve(n, δ, g, γ)
-        n * (γ^2 / 4 + (g * n - δ)^2)
+        Is = I.(ts, tmax, Imax)
+
+        error = similar(Is)
+
+        for (n, slice) ∈ enumerate(eachslice(sol, dims=ndims(sol)))
+            Is_pred = bistability_curve(maximum(abs2, slice), δ, g, γ)
+            error[n] = abs(Is_pred - Is[n])
+        end
+
+        @test sum(error[140:400]) / length(Is) ≤ 3e-3
     end
-    Is = I.(ts, tmax, Imax)
-
-    error = similar(Is)
-
-    for (n, slice) ∈ enumerate(eachslice(sol, dims=ndims(sol)))
-        Is_pred = bistability_curve(maximum(abs2, slice), δ, g, γ)
-        error[n] = abs(Is_pred - Is[n])
-    end
-
-    @test sum(error[140:400]) / length(Is) ≤ 3e-3
 end

@@ -56,7 +56,7 @@ m = ħ^2 / (2 * 1.29f0)
 δ₀ = ωₚ - ω₀
 δ = δ₀ - ħ * kₚ^2 / 2m
 
-N = 2048
+N = 512
 
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -64,14 +64,14 @@ Imax = 90.0f0
 t_cycle = 300.0f0
 tstop = 285.0f0
 t_end = 1000.0f0
-solver = StrangSplitting(1024, 2.0f-2)
+solver = StrangSplittingB(1024, 4.9f-1)
 
-bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+#bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
 
 #@code_warntype bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
 
-#ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
-#heatmap(rs, ts, (abs2.(sol)))
+ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+heatmap(rs, ts, (abs2.(sol)))
 ##
 
 _ts = filter(t -> t ≤ tstop, ts)
