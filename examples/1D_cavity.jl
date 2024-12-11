@@ -28,28 +28,25 @@ function plato_pump(x, xmin, xmax, width)
     end
 end
 
+function pump(x, param, t)
+    δ₀, m, γ, kₚ, t_cycle, t_stop, Imax = param
+    _t = t > t_stop ? t_stop : t
+    (x[1] ≤ -7) * √I(_t, t_cycle, Imax) * cis(kₚ * x[1])
+    #(abs(x[1]) ≤ 200) * √I(t, t_cycle, Imax) #* cis(kₚ * x[1])
+    #exp(-sum(abs2,x) / 200^2) * √I(t, t_cycle, Imax) * cis(-kₚ * x[1])
+end
+
 function bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, t_stop, t_end, solver)
     lengths = (L,)
-
     u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-
-    function pump(x, param, t)
-        δ₀, m, γ, kₚ, t_cycle, t_stop, Imax = param
-        _t = t > t_stop ? t_stop : t
-        (x[1] ≤ -7) * √I(_t, t_cycle, Imax) * cis(kₚ * x[1])
-        #(abs(x[1]) ≤ 200) * √I(t, t_cycle, Imax) #* cis(kₚ * x[1])
-        #exp(-sum(abs2,x) / 200^2) * √I(t, t_cycle, Imax) * cis(-kₚ * x[1])
-    end
-
     param = (δ₀, m, γ, kₚ, t_cycle, t_stop, Imax)
     prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
-
     tspan = (0, t_end)
     solve(prob, solver, tspan)
 end
 
 ω₀ = 1473.36f0 / ħ
-ωₚ = 1473.85 / ħ
+ωₚ = 1473.85f0 / ħ
 kₚ = 0.27f0
 
 γ = 0.047f0 / ħ
@@ -59,18 +56,22 @@ m = ħ^2 / (2 * 1.29f0)
 δ₀ = ωₚ - ω₀
 δ = δ₀ - ħ * kₚ^2 / 2m
 
-N = 512
+N = 2048
 
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 Imax = 90.0f0
-t_cycle = 300
-tstop = 285
-t_end = 1000
+t_cycle = 300.0f0
+tstop = 285.0f0
+t_end = 1000.0f0
 solver = StrangSplitting(1024, 2.0f-2)
 
-ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
-heatmap(rs, ts, (abs2.(sol)))
+bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+
+#@code_warntype bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+
+#ts, sol = bistability_cycle(g, δ₀, m, γ, kₚ, L, N, Imax, t_cycle, tstop, t_end, solver)
+#heatmap(rs, ts, (abs2.(sol)))
 ##
 
 _ts = filter(t -> t ≤ tstop, ts)

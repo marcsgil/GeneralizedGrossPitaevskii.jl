@@ -22,7 +22,7 @@ function grid_map!(dest::AbstractArray{T,N}, f!, x::NTuple{M}, args...) where {T
     func!(dest, f!, x, args...; ndrange)
 end
 
-grid_map!(::Nothing, f!, rs::NTuple{M}, args...) where {M} = nothing
+grid_map!(dest, ::Nothing, x::NTuple{M}, args...) where {M} = nothing
 
 function damping_potential_base(x, xmin, xmax, width)
     exp(-(x - xmin)^2 / width^2) + exp(-(x - xmax)^2 / width^2)

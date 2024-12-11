@@ -102,15 +102,15 @@ end
     ψ[K..., ..] *= cis(-G_δt * abs2(ψ[K...]))
 end
 
-function step!(u, buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt,
+function step!(u, buffer, fft_buffer, prob::GrossPitaevskiiProblem, ::StrangSplitting, exp_Aδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
     grid_map!(buffer, prob.pump, direct_grid(prob), prob.param, t)
     mul_or_nothing!(buffer, δt / 2)
     muladd_func!(u, exp_Vδt, buffer; ndrange=size(u))
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    plan * u
-    muladd_func!(u, exp_Aδt, nothing; ndrange=size(u))
-    iplan * u
+    mul!(fft_buffer, plan, u)
+    muladd_func!(fft_buffer, exp_Aδt, nothing; ndrange=size(u))
+    mul!(u, iplan, fft_buffer)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     muladd_func!(u, exp_Vδt, buffer; ndrange=size(u))
 end
@@ -120,13 +120,15 @@ similar_or_nothing(x, _) = similar(x)
 
 _next!(progress, show_progress) = show_progress ? next!(progress) : nothing
 
-function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; show_progress=true)
+function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; show_progress=true, fftw_num_threads=1)
+    FFTW.set_num_threads(fftw_num_threads)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+1)
     _result = @view result[ntuple(n -> :, ndims(prob.u0))..., begin+1:end]
 
     u = similar(prob.u0)
     ifftshift!(u, prob.u0, sdims(prob))
     buffer = similar_or_nothing(u, prob.pump)
+    fft_buffer = similar(u)
 
     ts = Vector{typeof(solver.δt)}(undef, solver.nsaves + 1)
     ts[1] = tspan[1]
@@ -141,18 +143,24 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
     exp_Vδt = get_exponential(u, prob.potential, direct_grid(prob), param, δt̅ / 2)
     G_δt = mul_or_nothing(prob.nonlinearity, δt̅ / 2)
 
-    plan = plan_fft!(u, sdims(prob))
+    plan = plan_fft(u, sdims(prob))
     iplan = inv(plan)
 
     backend = get_backend(prob.u0)
     muladd_func! = muladd_kernel!(backend)
     nonlinear_func! = nonlinear_kernel!(backend)
 
+    """return step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt,
+    muladd_func!, nonlinear_func!, plan, iplan, t, δt̅)"""
+
+    """return @benchmark step!($u, $buffer, $fft_buffer, $prob, $solver, $exp_Aδt, $exp_Vδt, $G_δt,
+    $muladd_func!, $nonlinear_func!, $plan, $iplan, $t, 0)"""
+
     progress = Progress(steps_per_save * solver.nsaves)
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
         for _ ∈ 1:steps_per_save
             t += δt̅
-            step!(u, buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt,
+            step!(u, buffer, fft_buffer, prob, solver, exp_Aδt, exp_Vδt, G_δt,
                 muladd_func!, nonlinear_func!, plan, iplan, t, δt̅)
             _next!(progress, show_progress)
         end
