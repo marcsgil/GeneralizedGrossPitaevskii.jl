@@ -16,7 +16,7 @@ function A(t, Amax, t_cycle, t_freeze)
     val < 0 ? zero(val) : val
 end
 
-function pump(x, param, t)
+function pump_bistab(x, param, t)
     args..., L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze = param
     (x[1] ≤ -7) * A(t, Amax, t_cycle, t_freeze) * (1 + 3 * (x[1] ≤ (-L / 2 + 10)))
@@ -57,20 +57,23 @@ t_freeze = 95.0f0
 param = (δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze)
 
-u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
-tspan = (0, 1000.0f0)
-solver = StrangSplittingB(1024, 4.0f-1)
-ts, sol = solve(prob, solver, tspan)
+u0_bistab = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
+prob_bistab = GrossPitaevskiiProblem(u0_bistab, lengths, dispersion, potential, g, pump_bistab, param)
+tspan_bistab = (0, 500.0f0)
+solver_bistab = StrangSplittingB(1024, 4.0f-1)
+ts_bistab, sol_bistab = solve(prob_bistab, solver_bistab, tspan_bistab)
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel="x", ylabel="t")
-    heatmap!(ax, rs, ts, (abs2.(sol)))
+    heatmap!(ax, rs, ts_bistab, (abs2.(sol_bistab)))
     fig
 end
 ##
-Is = @. A(ts, Amax, t_cycle, t_freeze)^2
+lines(abs2.(sol_bistab[:, end]))
+##
+Is = @. A(ts_bistab, Amax, t_cycle, t_freeze)^2
+color = [n ≤ length(ts_bistab) / 2 ? :red : :black for n ∈ eachindex(ts_bistab)]
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
@@ -78,7 +81,7 @@ end
 
 ns_theo = LinRange(0, 1800, 512)
 Is_theo = [bistability_curve(n, δ, g, γ) for n ∈ ns_theo]
-ns = abs2.(sol[N÷4, :])
+ns = abs2.(sol_bistab[N÷4, :])
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=24)
@@ -94,22 +97,43 @@ function speed_of_sound(g, n₀, δ, m)
 end
 
 function dispersion_relation(k, kₚ, g, n₀, δ, m, branch::Bool)
-    #cₛ = speed_of_sound(g, n₀, δ, m)
+    cₛ = speed_of_sound(g, n₀, δ, m)
     v = ħ * kₚ / m
     pm = branch ? 1 : -1
     gn₀ = g * n₀
     #v * k + pm * √(ħ^2 * k^4 / 4m^2 + (cₛ * k)^2 + (gn₀ - δ) * (3gn₀ - δ))
-    +pm * √(ħ^2 * k^4 / 4m^2 + (ħ * (2 * g * n₀ - δ) / m) * k^2 + (gn₀ - δ) * (3gn₀ - δ))
+    +pm * √(ħ^2 * k^4 / 4m^2 + (cₛ * k)^2 + (gn₀ - δ) * (3gn₀ - δ))
 end
 
+function pump_steady(x, param, t)
+    args..., L, V_damp, w_damp, V_def, w_def,
+    Amax, t_cycle, t_freeze, η = param
+    #F_pump = (x[1] ≤ -7) * A_steady * (1 + 3 * (x[1] ≤ (-L / 2 + 10)))
+    #F_pump + randn(ComplexF32) * η * A_steady
+    pump_bistab(x, param[begin:end-1], t) #+ randn(ComplexF32) * η * A_steady
+end
 
-u0_steady = sol[:, end]
+u0_steady = sol_bistab[:, end]
+A_steady = A(t_freeze, Amax, t_cycle, t_freeze)
 
+η = 1f0
+
+param_probe = (δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
+    Amax, t_cycle, t_freeze, η)
+
+prob = GrossPitaevskiiProblem(u0_steady, lengths, dispersion, potential, g, pump_steady, param_probe)
+tspan = tspan_bistab[2] .+ (0, 340.0f0)
+solver = StrangSplittingB(256, 4.0f-2)
+ts_probe, sol_probe = solve(prob, solver, tspan)
+
+heatmap(abs2.(sol_probe))
+##
 J = 100:220
-δψ = sol[J, 900:end] .- u0_steady[J]
+δψ = sol_bistab[J, 900:end] .- u0_steady[J]
 heatmap(abs2.(δψ))
 ##
-Δt = ts[2] - ts[1]
+
+Δt = ts_bistab[2] - ts_bistab[1]
 Δx = rs[2] - rs[1]
 
 Nx = size(δψ, 1)
@@ -119,7 +143,7 @@ ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
 ωs = range(; start=-π / Δt, step=2π / (Nt * Δt), length=Nt)
 
 
-log_δψ̃ = δψ |> fftshift |> fft |> ifftshift .|> abs .|> log
+log_δψ̃ = δψ |> ifftshift |> fft |> fftshift .|> abs .|> log
 reverse!(log_δψ̃, dims=2)
 J = argmax(log_δψ̃)
 log_δψ̃[J[1], :] .= min(log_δψ̃...)
@@ -137,11 +161,11 @@ with_theme(theme_latexfonts()) do
 end
 ##
 J = 340:400
-δψ = sol[J, 900:end] .- u0_steady[J]
+δψ = sol_probe[J, 900:1000] .- u0_steady[J]
 heatmap(abs2.(δψ))
+##
 
-
-Δt = ts[2] - ts[1]
+Δt = ts_probe[2] - ts_probe[1]
 Δx = rs[2] - rs[1]
 
 Nx = size(δψ, 1)
@@ -154,8 +178,8 @@ ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
 log_δψ̃ = δψ |> ifftshift |> fft |> fftshift .|> abs .|> log
 reverse!(log_δψ̃, dims=2)
 J = argmax(log_δψ̃)
-log_δψ̃[J[1], :] .= min(log_δψ̃...)
-log_δψ̃[:, J[2]] .= min(log_δψ̃...)
+#log_δψ̃[J[1], :] .= min(log_δψ̃...)
+#log_δψ̃[:, J[2]] .= min(log_δψ̃...)
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
