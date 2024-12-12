@@ -163,7 +163,7 @@ with_theme(theme_latexfonts()) do
     ω₊ = dispersion_relation.(ks, 0, g, 0, δ₀, m, true)
     ω₋ = dispersion_relation.(ks, 0, g, 0, δ₀, m, false)
     heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
-    lines!(ax, ks, ω₊, color=:grey, linestyle=:dot, linewidth=4)
-    lines!(ax, ks, ω₋, color=:grey, linestyle=:dot, linewidth=4)
+    lines!(ax, ks, ω₊, color=:red, linestyle=:dot, linewidth=4)
+    lines!(ax, ks, ω₋, color=:blue, linestyle=:dot, linewidth=4)
     fig
 end
