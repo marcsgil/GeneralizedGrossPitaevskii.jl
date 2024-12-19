@@ -2,7 +2,7 @@
 
 @kernel function muladd_kernel!(dest, ::Nothing, F_next, F_now, δt)
     K = @index(Global, NTuple)
-    dest[K..., ..] .+= (F_next[K...] + F_next[K...]) * δt / 2
+    dest[K...] .+= (F_next[K...] + F_next[K...]) * δt / 2
 end
 
 @kernel function muladd_kernel!(dest, exp_Dδt, ::Nothing, ::Nothing, δt)
@@ -19,7 +19,7 @@ end
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, A::AbstractArray{T2,N},
     ::Nothing, ::Nothing, δt) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K..., ..] .*= A[K...]
+    dest[K...] .*= A[K...]
 end
 
 @kernel function muladd_kernel!(dest, exp_Vδt, F_next, F_now, δt)
@@ -36,7 +36,7 @@ end
 @kernel function muladd_kernel!(dest::AbstractArray{T1,N}, exp_Vδt::AbstractArray{T2,N},
     F_next, F_now, δt) where {T1,T2,N}
     K = @index(Global, NTuple)
-    dest[K..., ..] .= exp_Vδt[K...] * (dest[K..., ..] + F_now[K...] * δt / 2) + F_next[K...] * δt / 2
+    dest[K...] .= exp_Vδt[K...] * (dest[K..., ..] + F_now[K...] * δt / 2) + F_next[K...] * δt / 2
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing
