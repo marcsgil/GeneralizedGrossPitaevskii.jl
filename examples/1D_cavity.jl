@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, FFTW, CairoMakie
+using GeneralizedGrossPitaevskii, CairoMakie
 
 function dispersion(ks, param)
     δ, m, γ, ħ = param
@@ -57,7 +57,7 @@ t_freeze = 95.0f0
 param = (δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze)
 
-u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
+u0 = CUDA.zeros(ComplexF32, ntuple(n -> N, length(lengths)))
 prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
 tspan = (0, 1000.0f0)
 solver = StrangSplittingB(1024, 4.0f-1)
@@ -66,7 +66,7 @@ ts, sol = solve(prob, solver, tspan)
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel="x", ylabel="t")
-    heatmap!(ax, rs, ts, (abs2.(sol)))
+    heatmap!(ax, rs, ts, Array(abs2.(sol)))
     fig
 end
 ##
