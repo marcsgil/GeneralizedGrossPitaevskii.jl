@@ -79,7 +79,7 @@ end
 
 function Base.show(io::IO,
     ::GrossPitaevskiiProblem{M,N,T,isscalar,T1}) where {M,N,T,isscalar,T1}
-    print(io, "GrossPitaevskiiProblem{$M,$N,$T,$(get_unionall(T1))}")
+    print(io, "GrossPitaevskiiProblem{$M,$N,$T,$isscalar,$(get_unionall(T1))}")
 end
 
 sdims(::GrossPitaevskiiProblem{M,N}) where {M,N} = ntuple(m -> m - M + N, M)
@@ -111,7 +111,7 @@ end
 
 function Base.show(io::IO,
     ::StochasticGrossPitaevskiiProblem{M,N,T,isscalar,T1}) where {M,N,T,isscalar,T1}
-    print(io, "StochasticGrossPitaevskiiProblem{$M,$N,$T,$(get_unionall(T1))}")
+    print(io, "StochasticGrossPitaevskiiProblem{$M,$N,$T,$isscalar,$(get_unionall(T1))}")
 end
 
 sdims(::StochasticGrossPitaevskiiProblem{M,N}) where {M,N} = ntuple(m -> m - M + N - 1, M)

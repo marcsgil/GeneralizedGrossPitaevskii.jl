@@ -22,28 +22,29 @@ struct LieSplitting{T<:Real} <: GGPSolver
     δt::T
 end
 
-get_exponential(::AbstractArray{T,N}, ::Nothing, ::NTuple{M}, param, δt) where {T,N,M} = nothing
+get_exponential(::AbstractGrossPitaevskiiProblem{M,N,T,Val{true}}, ::Nothing, grid, δt) where {T,N,M} = nothing
+get_exponential(::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, ::Nothing, grid, δt) where {T,N,M} = nothing
 
-function get_exponential(u::AbstractArray{T,N}, f!, grid::NTuple{M}, param, δt) where {T,N,M}
-    dest = Array{T,N + 1}(undef, size(u, 1), size(u)...)
+function get_exponential(prob::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, f!, grid, δt) where {M,N,T}
+    dest = Array{T,M + 2}(undef, size(prob.u0, 1), size(prob.u0, 1), ssize(prob)...)
 
     function im_f!(dest, x, param)
         f!(dest, x, param)
         lmul!(-im * δt, dest)
     end
 
-    grid_map!(dest, im_f!, grid, param)
+    grid_map!(dest, im_f!, grid, prob.param)
     for slice ∈ eachslice(dest, dims=ntuple(n -> n + 2, M))
         exponential!(slice)
     end
 
-    to_device(u, dest)
+    to_device(prob.u0, dest)
 end
 
-function get_exponential(u::AbstractArray{T,N}, f, grid::NTuple{N}, param, δt) where {T,N}
-    dest = similar(u)
+function get_exponential(prob::AbstractGrossPitaevskiiProblem{M,N,T,Val{true}}, f, grid, δt) where {M,N,T}
+    dest = similar(prob.u0, ssize(prob)...)
     exp_im_f(x, param) = cis(-δt * f(x, param))
-    grid_map!(dest, exp_im_f, grid, param)
+    grid_map!(dest, exp_im_f, grid, prob.param)
     dest
 end
 
@@ -110,7 +111,7 @@ end
 
 get_δt_combination(::StrangSplittingA, δt) = δt / 2, δt / 2, δt
 get_δt_combination(::StrangSplittingB, δt) = δt / 2, δt, δt / 2
-get_δt_combination(::StrangSplittingC, δt) = δt , δt / 2, δt / 2
+get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 
 
 function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
@@ -123,8 +124,8 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     fft_buffer = similar(u)
 
     δts = get_δt_combination(solver, δt)
-    exp_Dδt = get_exponential(u, prob.dispersion, reciprocal_grid(prob), prob.param, δts[1])
-    exp_Vδt = get_exponential(u, prob.potential, direct_grid(prob), prob.param, δts[2])
+    exp_Dδt = get_exponential(prob, prob.dispersion, reciprocal_grid(prob), δts[1])
+    exp_Vδt = get_exponential(prob, prob.potential, direct_grid(prob), δts[2])
     G_δt = mul_or_nothing(prob.nonlinearity, δts[3])
 
     plan = plan_fft(u, sdims(prob))
