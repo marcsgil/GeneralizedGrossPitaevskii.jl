@@ -47,43 +47,43 @@ function get_exponential(u::AbstractArray{T,N}, f, grid::NTuple{N}, param, δt) 
     dest
 end
 
-function diffusion_step!(u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
+function diffusion_step!(prob, u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
     mul!(buffer, plan, u)
-    diffusion_func!(buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
+    diffusion_func!(prob, buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
     mul!(u, iplan, buffer)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt, muladd_func!)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
-    muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
+    muladd_func!(prob, u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob::GrossPitaevskiiProblem, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob::GrossPitaevskiiProblem, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob::GrossPitaevskiiProblem, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
 end
@@ -113,7 +113,7 @@ get_δt_combination(::StrangSplittingB, δt) = δt / 2, δt, δt / 2
 get_δt_combination(::StrangSplittingC, δt) = δt , δt / 2, δt / 2
 
 
-function get_precomputations(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan, δt)
+function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+1)
 
     u = ifftshift(prob.u0, sdims(prob))
@@ -138,7 +138,7 @@ function get_precomputations(prob::GrossPitaevskiiProblem, solver::StrangSplitti
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
-function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; show_progress=true, fftw_num_threads=1)
+function solve(prob, solver::StrangSplitting, tspan; show_progress=true, fftw_num_threads=1)
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
@@ -153,7 +153,7 @@ function solve(prob::GrossPitaevskiiProblem, solver::StrangSplitting, tspan; sho
     t = tspan[1]
     progress = Progress(steps_per_save * solver.nsaves)
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
-        for _ ∈ 1:steps_per_save
+        for m ∈ 1:steps_per_save
             t += δt̅
             step!(u, args..., t, δt̅)
             _next!(progress, show_progress)
