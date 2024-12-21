@@ -33,3 +33,18 @@ similar_or_nothing(x, ::Nothing) = nothing
 similar_or_nothing(x, _) = similar(x)
 
 _next!(progress, show_progress) = show_progress ? next!(progress) : nothing
+
+function evaluate_pump!(::AbstractGrossPitaevskiiProblem{M,N,T,isscalar,T1,T2,T3,T4,T5,Nothing},
+    args...) where {M,N,T,isscalar,T1,T2,T3,T4,T5}
+    nothing
+end
+
+function evaluate_pump!(prob, dest, t)
+    rs = direct_grid(prob)
+    grid_map!(dest, prob.pump, rs, prob.param, t)
+end
+
+function evaluate_pump!(prob, dest_next, dest_now, t)
+    copy!(dest_now, dest_next)
+    evaluate_pump!(prob, dest_next, t)
+end
