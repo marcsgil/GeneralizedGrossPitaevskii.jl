@@ -50,13 +50,13 @@ end
 
 function diffusion_step!(prob, u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
     mul!(buffer, plan, u)
-    diffusion_func!(prob, buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
+    diffusion_func!(prob, prob.dispersion, buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
     mul!(u, iplan, buffer)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt, muladd_func!)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
-    muladd_func!(prob, u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
+    muladd_func!(prob, prob.potential, u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
 end
 
 function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
