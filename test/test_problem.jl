@@ -48,5 +48,5 @@
     @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; dispersion=f)
     @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; potential=f!)
     @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; noise=ScalarFunction(f!))
-    @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; pump=MatrixFunction(f!))
+    @test_throws TypeError GrossPitaevskiiProblem(u0, lengths; pump=MatrixFunction(f!))
 end

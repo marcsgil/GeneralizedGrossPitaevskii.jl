@@ -13,8 +13,6 @@ using GeneralizedGrossPitaevskii
         -im * γ / 2 + ω₀ * (1 + sum(abs2, ks) / 2kz^2) - ωₚ
     end
 
-    potential = nothing
-
     function I(t, tmax, Imax)
         val = -Imax * t * (t - tmax) * 4 / tmax^2
         val < 0 ? zero(val) : val
@@ -43,7 +41,7 @@ using GeneralizedGrossPitaevskii
 
     param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
-    prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
+    prob = GrossPitaevskiiProblem(u0, lengths; dispersion=ScalarFunction(dispersion), nonlinearity=g, pump=ScalarFunction(pump), param)
 
     for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
         solver = Tsolver(nsaves, δt)
@@ -59,5 +57,12 @@ using GeneralizedGrossPitaevskii
         end
 
         @test sum(error[140:400]) / length(Is) ≤ 3e-3
+
+        """for type ∈ (VectorFunction, MatrixFunction), nonlinearity ∈ (g/2, [g/2], [g/2;;])
+            new_dispersion = type((dest, args...) -> dest[1] = dispersion(args...))
+            prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity, pump=prob.pump, param)
+            ts, sol2 = solve(prob2, solver, tspan; show_progress=false)
+            @test dropdims(sol2, dims=1) ≈ sol
+        end"""
     end
 end

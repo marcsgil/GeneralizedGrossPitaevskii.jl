@@ -22,11 +22,14 @@ struct LieSplitting{T<:Real} <: GGPSolver
     δt::T
 end
 
-get_exponential(::AbstractGrossPitaevskiiProblem{M,N,T,Val{true}}, ::Nothing, grid, δt) where {T,N,M} = nothing
-get_exponential(::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, ::Nothing, grid, δt) where {T,N,M} = nothing
+get_exponential(prob, ::Nothing, grid, δt) = nothing
 
-function get_exponential(prob::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, f!, grid, δt) where {M,N,T}
-    dest = Array{T,M + 2}(undef, size(prob.u0, 1), size(prob.u0, 1), ssize(prob)...)
+_exponential!(M::AbstractMatrix) = exponential!(M)
+_exponential!(v::AbstractVector) = map!(exp, v, v)
+
+function get_exponential(prob, f!::TensorFunction{T,N}, grid, δt) where {T,N}
+    M = nsdims(prob)
+    dest = Array{eltype(prob),M + N}(undef, ntuple(n -> size(prob.u0, 1), N)..., ssize(prob)...)
 
     function im_f!(dest, x, param)
         f!(dest, x, param)
@@ -34,14 +37,14 @@ function get_exponential(prob::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}},
     end
 
     grid_map!(dest, im_f!, grid, prob.param)
-    for slice ∈ eachslice(dest, dims=ntuple(n -> n + 2, M))
-        exponential!(slice)
+    for slice ∈ eachslice(dest, dims=ntuple(n -> n + N, M))
+        _exponential!(slice)
     end
 
     to_device(prob.u0, dest)
 end
 
-function get_exponential(prob::AbstractGrossPitaevskiiProblem{M,N,T,Val{true}}, f, grid, δt) where {M,N,T}
+function get_exponential(prob, f::ScalarFunction, grid, δt)
     dest = similar(prob.u0, ssize(prob)...)
     exp_im_f(x, param) = cis(-δt * f(x, param))
     grid_map!(dest, exp_im_f, grid, prob.param)

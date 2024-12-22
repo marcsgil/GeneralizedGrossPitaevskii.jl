@@ -16,17 +16,17 @@ end
 end
 
 @kernel function muladd_kernel!(::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, ::VectorFunction, dest, exp_Dδt, ::Nothing, ::Nothing, δt) where {M,N,T}
-    i, K... = @index(Global, NTuple)
-    fK = K[1:ndims(exp_Dδt)-1]
-    dest[i, K...] *= exp_Dδt[i, fK...]
+    K = @index(Global, NTuple)
+    fK = K[1:ndims(exp_Dδt)]
+    dest[K...] *= exp_Dδt[fK...]
 end
 
 @kernel function muladd_kernel!(::AbstractGrossPitaevskiiProblem{M,N,T,Val{false}}, ::MatrixFunction, dest, exp_Dδt, ::Nothing, ::Nothing, δt) where {M,N,T}
     i, K... = @index(Global, NTuple)
-    fK = K[1::ndims(exp_Dδt)-2]
+    fK = K[1:ndims(exp_Dδt)-2]
 
     tmp = zero(eltype(dest))
-    for j ∈ axes(dest, 1)
+    @simd for j ∈ axes(dest, 1)
         tmp += exp_Dδt[i, j, fK...] * dest[j, K...]
     end
 
@@ -51,7 +51,7 @@ end
     fK = K[1:ndims(exp_Vδt)-2]
 
     tmp = zero(eltype(dest))
-    for j ∈ axes(dest, 1)
+    @simd for j ∈ axes(dest, 1)
         tmp += exp_Vδt[i, j, fK...] * (dest[j, K...] + F_now[j, fK...] * δt / 2) + F_next[j, fK...] * δt / 2
     end
 

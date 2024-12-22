@@ -41,15 +41,14 @@ function reciprocal_grid(prob::AbstractGrossPitaevskiiProblem{M}) where {M}
 end
 
 build_buffer(f, u0) = nothing
-build_buffer(::VectorFunction, u0) = similar(u0, size(u0, 1))
-build_buffer(::MatrixFunction, u0) = similar(u0, size(u0, 1), size(u0, 1))
+build_buffer(::TensorFunction{T,N}, u0) where {T,N} = similar(u0, ntuple(n->size(u0, 1), N)...)
 
 call_func(::Nothing, buffer, lengths, param) = nothing
 function call_func(f::ScalarFunction, buffer, lengths, param)
     x = f(lengths, param)
     @assert x isa Number
 end
-call_func(f::Union{VectorFunction,ScalarFunction}, buffer, lengths, param) = f(buffer, lengths, param)
+call_func(f::Union{VectorFunction,MatrixFunction}, buffer, lengths, param) = f(buffer, lengths, param)
 
 function test_signature(f::UpToMatrixFunction, u0, lengths, param, name)
     buffer = build_buffer(f, u0)
@@ -57,9 +56,10 @@ function test_signature(f::UpToMatrixFunction, u0, lengths, param, name)
         call_func(f, buffer, lengths, param)
     catch e
         throw(ArgumentError("""
-        There is an error in the provided $name.
-        Check if the signature and return types are correct.
-        The stacktrace bellow may help you to find the error.
+        There is an error in the problem specification, identified when calling $name.
+        Check if the signatures, return types and parameters are correct.
+        The stacktrace bellow may help you to find the error:
+
         $e
         """))
     end
@@ -91,7 +91,6 @@ struct GrossPitaevskiiProblem{M,N,T<:Complex,isscalar,
         func_dict = Dict(
             "dispersion" => dispersion,
             "potential" => potential,
-            "pump" => pump,
             "noise" => noise
         )
         for (name, f) ∈ func_dict
