@@ -1,5 +1,6 @@
 abstract type AbstractGrossPitaevskiiProblem{M,N,T<:Complex,isscalar,T1<:AbstractArray{T,N},T2<:Real,
-    FunctionOrNothingT3<:FunctionOrNothing,T4<:FunctionOrNothing,T5,T6<:FunctionOrNothing,T7<:FunctionOrNothing,T8} end
+    T3<:UpToMatrixFunction,T4<:UpToMatrixFunction,T5<:Union{Nothing,Number,AbstractVecOrMat},
+    T6<:UpToVectorFunction,T7<:UpToMatrixFunction,T8} end
 
 Base.size(prob::AbstractGrossPitaevskiiProblem, args...) = size(prob.u0, args...)
 Base.ndims(::AbstractGrossPitaevskiiProblem{M,N}) where {M,N} = N
@@ -39,35 +40,33 @@ function reciprocal_grid(prob::AbstractGrossPitaevskiiProblem{M}) where {M}
     ntuple(m -> fftfreq(ssize(prob, m), 2π * ssize(prob, m) / prob.lengths[m]), M)
 end
 
-convert2scalar(::Nothing) = nothing
-convert2scalar(f::Function) = ScalarFunction(f)
-convert2scalar(f::ScalarFunction) = f
-convert2scalar(::Any) = throw(ArgumentError("A non scalar function is not allowed for a scalar problem."))
+build_buffer(f, u0) = nothing
+build_buffer(::VectorFunction, u0) = similar(u0, size(u0, 1))
+build_buffer(::MatrixFunction, u0) = similar(u0, size(u0, 1), size(u0, 1))
 
-function test_signature(::Nothing, u0, lengths, param)
-    nothing
+call_func(::Nothing, buffer, lengths, param) = nothing
+function call_func(f::ScalarFunction, buffer, lengths, param)
+    x = f(lengths, param)
+    @assert x isa Number
 end
+call_func(f::Union{VectorFunction,ScalarFunction}, buffer, lengths, param) = f(buffer, lengths, param)
 
-function test_signature(f::ScalarFunction, u0, lengths, param)
+function test_signature(f::UpToMatrixFunction, u0, lengths, param, name)
+    buffer = build_buffer(f, u0)
     try
-        x = f(lengths, param)
-        @assert x isa Number
+        call_func(f, buffer, lengths, param)
     catch e
-        @warn "A provided function is invalid."
-        throw(e)
+        throw(ArgumentError("""
+        There is an error in the provided $name.
+        Check if the signature and return types are correct.
+        The stacktrace bellow may help you to find the error.
+        $e
+        """))
     end
 end
 
-test_signature(f::Function, u0, lengths, param) = test_signature(ScalarFunction(f), u0, lengths, param)
-
-function test_signature(f::MatrixFunction, u0, lengths, param)
-    try
-        buffer = similar(u0, size(u0,1), size(u0, 1))
-        f(buffer, lengths, param)
-    catch e
-        @warn "A provided function is invalid."
-        throw(e)
-    end
+function test_signature(f::Function, u0, lengths, param, name)
+    throw(ArgumentError("The provided $name is a Function. You should wrap it in a `ScalarFunction`, `VectorFunction` or `MatrixFunction`."))
 end
 
 struct GrossPitaevskiiProblem{M,N,T<:Complex,isscalar,
@@ -89,27 +88,20 @@ struct GrossPitaevskiiProblem{M,N,T<:Complex,isscalar,
         T = eltype(_u0)
         @assert N - M ∈ (0, 1) "The dimensions of the initial condition and the lengths do not match."
 
-        for f ∈ (dispersion, potential, pump, noise)
-            test_signature(f, _u0, _lengths, param)
+        func_dict = Dict(
+            "dispersion" => dispersion,
+            "potential" => potential,
+            "pump" => pump,
+            "noise" => noise
+        )
+        for (name, f) ∈ func_dict
+            test_signature(f, _u0, _lengths, param, name)
         end
 
         isscalar = Val{M == N}
         T1 = typeof(_u0)
         T2 = typeof(first(_lengths))
-        if M == N
-            _dispersion = convert2scalar(dispersion)
-            _potential = convert2scalar(potential)
-            _pump = convert2scalar(pump)
-            @assert nonlinearity isa Union{Number,Nothing} "The nonlinearity must be a number for scalar problems."
-            _noise = convert2scalar(noise)
-            _T3 = typeof(_dispersion)
-            _T4 = typeof(_potential)
-            _T6 = typeof(_pump)
-            _T7 = typeof(_noise)
-            new{M,N,T,isscalar,T1,T2,_T3,_T4,T5,_T6,_T7,T8}(_u0, _lengths, _dispersion, _potential, nonlinearity, _pump, _noise, param)
-        else
-            new{M,N,T,isscalar,T1,T2,T3,T4,T5,T6,T7,T8}(_u0, _lengths, dispersion, potential, nonlinearity, pump, noise, param)
-        end
+        new{M,N,T,isscalar,T1,T2,T3,T4,T5,T6,T7,T8}(_u0, _lengths, dispersion, potential, nonlinearity, pump, noise, param)
     end
 end
 

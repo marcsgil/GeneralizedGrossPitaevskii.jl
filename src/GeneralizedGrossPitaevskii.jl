@@ -5,6 +5,7 @@ using ExponentialUtilities, EllipsisNotation
 using BenchmarkTools
 
 include("function_types.jl")
+export ScalarFunction, VectorFunction, MatrixFunction
 include("problem.jl")
 export GrossPitaevskiiProblem, AbstractGrossPitaevskiiProblem, EnsembleGrossPitaevskiiProblem
 

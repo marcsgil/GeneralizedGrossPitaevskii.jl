@@ -2,12 +2,8 @@
     # Define a test problem
     u0 = rand(ComplexF32, 4, 3, 2)
     lengths = (1, 2, 3)
-    dispersion = 1.0
-    potential = 1.0
-    nonlinearity = 1.0
-    pump = 1.0
 
-    prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, nonlinearity, pump)
+    prob = GrossPitaevskiiProblem(u0, lengths)
 
     # Test size
     @test size(prob) == size(u0)
@@ -40,4 +36,17 @@
     @test length(reciprocal_grid_result) == 3
     @test length(reciprocal_grid_result[1]) == 4
     @test eltype(reciprocal_grid_result[1]) == Float64
+
+    # Test invalid initial condition dimensions
+    u0_invalid = rand(ComplexF32, 4, 3)
+    lengths_valid = (1, 2, 3)
+    @test_throws AssertionError GrossPitaevskiiProblem(u0_invalid, lengths_valid)
+
+    f(x, y) = nothing
+    f!(x, y, z) = nothing
+
+    @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; dispersion=f)
+    @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; potential=f!)
+    @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; noise=ScalarFunction(f!))
+    @test_throws ArgumentError GrossPitaevskiiProblem(u0, lengths; pump=MatrixFunction(f!))
 end
