@@ -6,7 +6,7 @@ using Reexport
 @reexport using StaticArrays
 
 include("problem.jl")
-export GrossPitaevskiiProblem, AbstractGrossPitaevskiiProblem, EnsembleGrossPitaevskiiProblem
+export GrossPitaevskiiProblem
 
 include("misc.jl")
 

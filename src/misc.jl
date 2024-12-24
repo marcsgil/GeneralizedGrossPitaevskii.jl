@@ -26,9 +26,6 @@ mul_or_nothing!(::Nothing, δt) = nothing
 mul_or_nothing(x, δt) = x * δt
 mul_or_nothing!(x, δt) = rmul!(x, δt)
 
-"""similar_or_nothing(x, ::Nothing) = nothing
-similar_or_nothing(x, _) = similar(x)"""
-
 function get_pump_buffer(pump, u, lengths, param, t)
     T = pump(lengths, param, t) |> typeof
     similar(u, T)
@@ -38,8 +35,8 @@ get_pump_buffer(::Nothing, args...) = nothing
 
 _next!(progress, show_progress) = show_progress ? next!(progress) : nothing
 
-function evaluate_pump!(prob::GrossPitaevskiiProblem{N,T,T1,T2,T3,T4,T5,Nothing},
-    args...) where {N,T,T1,T2,T3,T4,T5}
+function evaluate_pump!(prob::GrossPitaevskiiProblem{M,N,T,T1,T2,T3,T4,T5,Nothing},
+    args...) where {M,N,T,T1,T2,T3,T4,T5}
     nothing
 end
 

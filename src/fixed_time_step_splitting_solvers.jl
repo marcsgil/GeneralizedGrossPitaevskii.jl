@@ -111,8 +111,8 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     ru = reinterpret(reshape, eltype(T), u)
     fft_rbuffer = reinterpret(reshape, eltype(T), fft_buffer)
 
-    fft_dims = ntuple(identity, ndims(fft_rbuffer))[end-ndims(u)+1:end]
-    plan = plan_fft(fft_rbuffer, fft_dims)
+    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(fft_rbuffer) - ndims(fft_buffer))
+    plan = plan_fft(fft_rbuffer, ftdims)
     iplan = inv(plan)
 
     δts = get_δt_combination(solver, δt)
