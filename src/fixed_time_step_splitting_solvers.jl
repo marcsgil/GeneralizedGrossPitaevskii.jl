@@ -22,64 +22,48 @@ struct LieSplitting{T<:Real} <: GGPSolver
     δt::T
 end
 
-get_exponential(prob, ::Nothing, grid, δt) = nothing
+get_exponential(::Nothing, u0, grid, param, δt) = nothing
 
-_exponential!(M::AbstractMatrix) = exponential!(M)
-_exponential!(v::AbstractVector) = map!(exp, v, v)
-
-function get_exponential(prob, f!::TensorFunction{T,N}, grid, δt) where {T,N}
-    M = nsdims(prob)
-    dest = Array{eltype(prob),M + N}(undef, ntuple(n -> size(prob.u0, 1), N)..., ssize(prob)...)
-
-    function im_f!(dest, x, param)
-        f!(dest, x, param)
-        lmul!(-im * δt, dest)
-    end
-
-    grid_map!(dest, im_f!, grid, prob.param)
-    for slice ∈ eachslice(dest, dims=ntuple(n -> n + N, M))
-        _exponential!(slice)
-    end
-
-    to_device(prob.u0, dest)
-end
-
-function get_exponential(prob, f::ScalarFunction, grid, δt)
-    dest = similar(prob.u0, ssize(prob)...)
-    exp_im_f(x, param) = cis(-δt * f(x, param))
-    grid_map!(dest, exp_im_f, grid, prob.param)
+function get_exponential(f, u0, grid, param, δt)
+    cis_f(x, param) = _cis(-δt * f(x, param))
+    T = cis_f(ntuple(m -> first(grid[m]), length(grid)), param) |> typeof
+    dest = similar(u0, T)
+    grid_map!(dest, cis_f, grid, param)
     dest
 end
 
-function diffusion_step!(prob, u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
-    mul!(buffer, plan, u)
-    diffusion_func!(prob, prob.dispersion, buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
-    mul!(u, iplan, buffer)
+function diffusion_step!(u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
+    T = eltype(u)
+    ru = reinterpret(reshape, eltype(T), u)
+    mul!(buffer, plan, ru)
+    rbuffer = reinterpret(reshape, T, buffer)
+    diffusion_func!(rbuffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
+    mul!(ru, iplan, buffer)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt, muladd_func!)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
-    muladd_func!(prob, prob.potential, u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
+    muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
 end
 
 function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
-    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
 function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
 function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
@@ -87,7 +71,7 @@ function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingC,
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(prob, u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=ssize(prob))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
 end
@@ -124,14 +108,14 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     buffer_next = similar_or_nothing(u, prob.pump)
     evaluate_pump!(prob, buffer_next, tspan[1])
     buffer_now = similar_or_nothing(u, prob.pump)
-    fft_buffer = similar(u)
+    fft_buffer = stack(u)
 
     δts = get_δt_combination(solver, δt)
-    exp_Dδt = get_exponential(prob, prob.dispersion, reciprocal_grid(prob), δts[1])
-    exp_Vδt = get_exponential(prob, prob.potential, direct_grid(prob), δts[2])
+    exp_Dδt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, δts[1])
+    exp_Vδt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, δts[2])
     G_δt = mul_or_nothing(prob.nonlinearity, δts[3])
 
-    plan = plan_fft(u, sdims(prob))
+    plan = plan_fft(fft_buffer, sdims(prob))
     iplan = inv(plan)
 
     backend = get_backend(prob.u0)
@@ -147,12 +131,9 @@ function solve(prob, solver::StrangSplitting, tspan; show_progress=true, fftw_nu
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
 
+    get_precomputations(prob, solver, tspan, δt̅)
     result, u, args... = get_precomputations(prob, solver, tspan, δt̅)
     _result = @view result[ntuple(n -> :, ndims(prob.u0))..., begin+1:end]
-
-    """return step!(u, args..., t, δt̅)"""
-
-    """return @benchmark step!($u, $(args...), 0, 0)"""
 
     t = tspan[1]
     progress = Progress(steps_per_save * solver.nsaves)

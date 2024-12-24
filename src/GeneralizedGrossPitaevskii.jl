@@ -1,8 +1,9 @@
 module GeneralizedGrossPitaevskii
 
 using KernelAbstractions, FFTW, LinearAlgebra, ProgressMeter
-using ExponentialUtilities, EllipsisNotation
-using BenchmarkTools
+
+using Reexport
+@reexport using StaticArrays
 
 include("function_types.jl")
 export ScalarFunction, VectorFunction, MatrixFunction
@@ -14,9 +15,10 @@ include("misc.jl")
 include("potentials.jl")
 export damping_potential
 
-include("scalar_kernels.jl")
-include("non_scalar_kernels.jl")
-include("non_linear_kernels.jl")
+include("kernels.jl")
+#include("scalar_kernels.jl")
+#include("non_scalar_kernels.jl")
+#include("non_linear_kernels.jl")
 
 include("fixed_time_step_splitting_solvers.jl")
 export solve, StrangSplittingA, StrangSplittingB, StrangSplittingC
