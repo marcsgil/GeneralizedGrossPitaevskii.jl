@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, CairoMakie
+using GeneralizedGrossPitaevskii, CairoMakie, FFTW
 
 function dispersion(ks, param)
     δ, m, γ, ħ = param
@@ -57,8 +57,8 @@ t_freeze = 95.0f0
 param = (δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze)
 
-u0 = CUDA.zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-prob = GrossPitaevskiiProblem(u0, lengths, dispersion, potential, g, pump, param)
+u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param)
 tspan = (0, 1000.0f0)
 solver = StrangSplittingB(1024, 4.0f-1)
 ts, sol = solve(prob, solver, tspan)
