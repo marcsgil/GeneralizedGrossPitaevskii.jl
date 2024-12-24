@@ -32,13 +32,10 @@ function get_exponential(f, u0, grid, param, δt)
     dest
 end
 
-function diffusion_step!(u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
-    T = eltype(u)
-    ru = reinterpret(reshape, eltype(T), u)
-    mul!(buffer, plan, ru)
-    rbuffer = reinterpret(reshape, T, buffer)
-    diffusion_func!(rbuffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(u))
-    mul!(ru, iplan, buffer)
+function diffusion_step!(ru, buffer, rbuffer, exp_Dδt, diffusion_func!, plan, iplan)
+    mul!(rbuffer, plan, ru)
+    diffusion_func!(buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(buffer))
+    mul!(ru, iplan, rbuffer)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt, muladd_func!)
@@ -46,33 +43,33 @@ function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
+    nonlinear_func!(u, G_δt; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
+    nonlinear_func!(u, G_δt; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
+    nonlinear_func!(u, G_δt; ndrange=size(u))
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, buffer_next, buffer_now, fft_buffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
-    diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, G_δt; ndrange=ssize(prob))
+    nonlinear_func!(u, G_δt; ndrange=size(u))
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
+    nonlinear_func!(u, G_δt; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
 end
 
@@ -104,25 +101,30 @@ get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+1)
 
-    u = ifftshift(prob.u0, sdims(prob))
-    buffer_next = similar_or_nothing(u, prob.pump)
+    u = ifftshift(prob.u0)
+    buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
+    buffer_now = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
     evaluate_pump!(prob, buffer_next, tspan[1])
-    buffer_now = similar_or_nothing(u, prob.pump)
-    fft_buffer = stack(u)
+    fft_buffer = similar(u)
+
+    T = eltype(u)
+    ru = reinterpret(reshape, eltype(T), u)
+    fft_rbuffer = reinterpret(reshape, eltype(T), fft_buffer)
+
+    fft_dims = ntuple(identity, ndims(fft_rbuffer))[end-ndims(u)+1:end]
+    plan = plan_fft(fft_rbuffer, fft_dims)
+    iplan = inv(plan)
 
     δts = get_δt_combination(solver, δt)
     exp_Dδt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, δts[1])
     exp_Vδt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, δts[2])
     G_δt = mul_or_nothing(prob.nonlinearity, δts[3])
 
-    plan = plan_fft(fft_buffer, sdims(prob))
-    iplan = inv(plan)
-
     backend = get_backend(prob.u0)
     muladd_func! = muladd_kernel!(backend)
     nonlinear_func! = nonlinear_kernel!(backend)
 
-    result, u, buffer_next, buffer_now, fft_buffer, prob, solver, exp_Dδt, exp_Vδt, G_δt,
+    result, u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, solver, exp_Dδt, exp_Vδt, G_δt,
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
@@ -143,7 +145,7 @@ function solve(prob, solver::StrangSplitting, tspan; show_progress=true, fftw_nu
             step!(u, args..., t, δt̅)
             _next!(progress, show_progress)
         end
-        fftshift!(slice, u, sdims(prob))
+        fftshift!(slice, u)
         ts[n+1] = t
     end
     finish!(progress)

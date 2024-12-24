@@ -24,65 +24,11 @@ function Base.show(io::IO,
     print(io, "GrossPitaevskiiProblem{$T1}")
 end
 
-Base.size(prob::GrossPitaevskiiProblem, args...) = size(prob.u0, args...)
-Base.ndims(prob::GrossPitaevskiiProblem{N}) where {N} = ndims(prob.u0)
-Base.eltype(::GrossPitaevskiiProblem{N,T}) where {N,T} = T
-
-"""
-    nsdims(prob)
-
-Return the number of spatial dimensions of the problem.
-"""
-nsdims(::GrossPitaevskiiProblem{N}) where {N} = N
-
-"""
-    ssize(prob[, dim])
-
-Return a tuple representing the spatial size of the problem.
-If `dim` is specified, return the size of the `dim`-th spatial dimension.
-"""
-ssize(prob::GrossPitaevskiiProblem, args...) = size(prob, args...)
-
-"""
-    sdims(prob)
-
-Return the spatial dimensions of the problem.
-"""
-sdims(::GrossPitaevskiiProblem{N}) where {N} = ntuple(identity, N)
-
 function direct_grid(prob::GrossPitaevskiiProblem{N}) where {N}
-    ntuple(n -> fftfreq(ssize(prob, n), prob.lengths[n]), N)
+    ntuple(n -> fftfreq(size(prob.u0, n), prob.lengths[n]), N)
 end
 
 function reciprocal_grid(prob::GrossPitaevskiiProblem{N}) where {N}
-    ntuple(n -> fftfreq(ssize(prob, n), 2π * ssize(prob, n) / prob.lengths[n]), N)
-end
-
-build_buffer(f, u0) = nothing
-build_buffer(::TensorFunction{T,N}, u0) where {T,N} = similar(u0, ntuple(n -> size(u0, 1), N)...)
-
-call_func(::Nothing, buffer, lengths, param) = nothing
-function call_func(f::ScalarFunction, buffer, lengths, param)
-    x = f(lengths, param)
-    @assert x isa Number
-end
-call_func(f::Union{VectorFunction,MatrixFunction}, buffer, lengths, param) = f(buffer, lengths, param)
-
-function test_signature(f::UpToMatrixFunction, u0, lengths, param, name)
-    buffer = build_buffer(f, u0)
-    try
-        call_func(f, buffer, lengths, param)
-    catch e
-        throw(ArgumentError("""
-        There is an error in the problem specification, identified when calling $name.
-        Check if the signatures, return types and parameters are correct.
-        The stacktrace bellow may help you to find the error:
-
-        $e
-        """))
-    end
-end
-
-function test_signature(f::Function, u0, lengths, param, name)
-    throw(ArgumentError("The provided $name is a Function. You should wrap it in a `ScalarFunction`, `VectorFunction` or `MatrixFunction`."))
+    ntuple(n -> fftfreq(size(prob.u0, n),
+            oftype(prob.lengths[n], 2π) * size(prob.u0, n) / prob.lengths[n]), N)
 end

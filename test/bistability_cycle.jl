@@ -36,12 +36,12 @@ using GeneralizedGrossPitaevskii
 
     δt = 0.1f0
     nsaves = 512
-    tspan = (0, 3300)
+    tspan = (0, 3300f0)
     tmax = tspan[end]
 
     param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
 
-    prob = GrossPitaevskiiProblem(u0, lengths; dispersion=ScalarFunction(dispersion), nonlinearity=g, pump=ScalarFunction(pump), param)
+    prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity=g, pump, param)
 
     for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
         solver = Tsolver(nsaves, δt)
@@ -58,11 +58,15 @@ using GeneralizedGrossPitaevskii
 
         @test sum(error[140:400]) / length(Is) ≤ 3e-3
 
-        """for type ∈ (VectorFunction, MatrixFunction), nonlinearity ∈ (g/2, [g/2], [g/2;;])
-            new_dispersion = type((dest, args...) -> dest[1] = dispersion(args...))
-            prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity, pump=prob.pump, param)
-            ts, sol2 = solve(prob2, solver, tspan; show_progress=false)
-            @test dropdims(sol2, dims=1) ≈ sol
-        end"""
+        new_u0 = [SVector(val) for val ∈ u0]
+        for type ∈ (identity, SVector, SMatrix{1,1}), nonlinearity ∈ (g, SVector(g), SMatrix{1,1}(g))
+            for pump_type ∈ (identity, SVector)
+                new_dispersion(args...) = type(dispersion(args...))
+                new_pump(args...) = pump_type(pump(args...))
+                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity, pump, param)
+                ts, sol2 = solve(prob2, solver, tspan; show_progress=false)
+                @test reinterpret(reshape, ComplexF32, sol2) ≈ sol
+            end
+        end
     end
 end

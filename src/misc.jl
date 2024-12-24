@@ -26,8 +26,15 @@ mul_or_nothing!(::Nothing, δt) = nothing
 mul_or_nothing(x, δt) = x * δt
 mul_or_nothing!(x, δt) = rmul!(x, δt)
 
-similar_or_nothing(x, ::Nothing) = nothing
-similar_or_nothing(x, _) = similar(x)
+"""similar_or_nothing(x, ::Nothing) = nothing
+similar_or_nothing(x, _) = similar(x)"""
+
+function get_pump_buffer(pump, u, lengths, param, t)
+    T = pump(lengths, param, t) |> typeof
+    similar(u, T)
+end
+
+get_pump_buffer(::Nothing, args...) = nothing
 
 _next!(progress, show_progress) = show_progress ? next!(progress) : nothing
 
