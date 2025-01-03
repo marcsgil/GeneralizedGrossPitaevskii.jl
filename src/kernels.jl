@@ -1,25 +1,14 @@
-_mul(x, y) = x * y
-_mul(x::AbstractVector, y) = x .* y
-
-@kernel muladd_kernel!(dest, ::Nothing, ::Nothing, ::Nothing, δt) = nothing
-
-@kernel function muladd_kernel!(dest, ::Nothing, F_next, F_now, δt)
+@kernel function muladd_kernel!(dest, exp_δt, F_next, F_now, δt, noise_func, ξ, param)
     K = @index(Global, NTuple)
-    K_f = K[1:ndims(F_next)]
-    dest[K...] = dest[K...] .+ (F_next[K_f...] + F_now[K_f...]) * δt / 2
-end
 
-@kernel function muladd_kernel!(dest, exp_Dδt, ::Nothing, ::Nothing, δt)
-    K = @index(Global, NTuple)
-    K_D = K[1:ndims(exp_Dδt)]
-    dest[K...] = _mul(exp_Dδt[K_D...], dest[K...])
-end
+    exp_δt_val = _getindex(exp_δt, K)
+    Fδt_next_val = _mul(δt / 2, _getindex(F_next, K))
+    Fδt_now_val = _mul(δt / 2, _getindex(F_now, K))
+    ξ_val = _getindex(ξ, K)
+    noise = _mul(δt, mul_noise(noise_func, ξ_val, dest[K...], param))
 
-@kernel function muladd_kernel!(dest, exp_Vδt, F_next, F_now, δt)
-    K = @index(Global, NTuple)
-    K_V = K[1:ndims(exp_Vδt)]
-    K_f = K[1:ndims(F_next)]
-    dest[K...] = _mul(exp_Vδt[K_V...], (dest[K...] .+ F_now[K_f...] * δt / 2)) .+ F_next[K_f...] * δt / 2
+    dest[K...] = _add(_mul(exp_δt_val, _add(dest[K...], Fδt_now_val)), Fδt_next_val)
+    dest[K...] = _add(dest[K...], noise)
 end
 
 @kernel nonlinear_kernel!(ψ, ::Nothing) = nothing

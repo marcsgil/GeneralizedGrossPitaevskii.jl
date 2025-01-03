@@ -32,45 +32,55 @@ function get_exponential(f, u0, grid, param, δt)
     dest
 end
 
+get_noise(::Nothing, noise_eltype, u) = nothing, nothing
+function get_noise(noise_func, noise_eltype, u)
+    ξ = map(x -> noise_eltype(zero(x)), u)
+    rξ = reinterpret(reshape, noise_eltype, ξ)
+    ξ, rξ
+end
+sample_noise!(::Nothing) = nothing
+sample_noise!(noise) = randn!(noise)
+
 function diffusion_step!(ru, buffer, rbuffer, exp_Dδt, diffusion_func!, plan, iplan)
     mul!(rbuffer, plan, ru)
-    diffusion_func!(buffer, exp_Dδt, nothing, nothing, nothing; ndrange=size(buffer))
+    diffusion_func!(buffer, exp_Dδt, nothing, nothing, zero(eltype(rbuffer)), nothing, nothing, nothing; ndrange=size(buffer))
     mul!(ru, iplan, rbuffer)
 end
 
-function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t, δt, muladd_func!)
+function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
+    sample_noise!(rξ)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
-    muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt; ndrange=size(u))
+    muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=size(u))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=size(u))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt,
+function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
     nonlinear_func!(u, G_δt; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, G_δt; ndrange=size(u))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
 end
 
 """
@@ -118,13 +128,15 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     δts = get_δt_combination(solver, δt)
     exp_Dδt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, δts[1])
     exp_Vδt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, δts[2])
-    G_δt = mul_or_nothing(prob.nonlinearity, δts[3])
+    G_δt = _mul(δts[3], prob.nonlinearity)
+
+    ξ, rξ = get_noise(prob.noise_func, prob.noise_eltype, u)
 
     backend = get_backend(prob.u0)
     muladd_func! = muladd_kernel!(backend)
     nonlinear_func! = nonlinear_kernel!(backend)
 
-    result, u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, solver, exp_Dδt, exp_Vδt, G_δt,
+    result, u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, solver, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan
 end
 

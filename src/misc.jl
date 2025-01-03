@@ -21,10 +21,24 @@ _exp(x::AbstractVector) = exp.(x)
 _cis(x) = cis(x)
 _cis(x::AbstractVector) = cis.(x)
 
-mul_or_nothing(::Nothing, δt) = nothing
-mul_or_nothing!(::Nothing, δt) = nothing
-mul_or_nothing(x, δt) = x * δt
-mul_or_nothing!(x, δt) = rmul!(x, δt)
+_getindex(A, K) = A[K[1:ndims(A)]...]
+_getindex(::Nothing, K) = nothing
+
+_mul(x, y) = x * y
+_mul(x::AbstractVector, y::AbstractVector) = x .* y
+_mul(::Nothing, ::Nothing) = nothing
+_mul(x, ::Nothing) = nothing
+_mul(::Nothing, y) = y
+_mul(x, y, args...) = _mul(x, _mul(y, args...))
+
+_add(x, y) = x .+ y
+_add(x, ::Nothing) = x
+_add(::Nothing, y) = nothing
+_add(::Nothing, ::Nothing) = nothing
+_add(x, y, args...) = _add(x, _add(y, args...))
+
+mul_noise(noise_func, ::Nothing, args...) = nothing
+mul_noise(noise_func, ξ, args...) = _mul(noise_func(args...), ξ)
 
 function get_pump_buffer(pump, u, lengths, param, t)
     T = pump(lengths, param, t) |> typeof
