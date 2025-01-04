@@ -20,8 +20,6 @@ export solve, StrangSplittingA, StrangSplittingB, StrangSplittingC
 
 #TODO
 
-# noise
 # parallel parameters
-# reduction
 
 end

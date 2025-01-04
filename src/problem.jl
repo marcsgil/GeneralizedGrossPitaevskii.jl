@@ -6,10 +6,10 @@ struct GrossPitaevskiiProblem{M,N,T,T1<:AbstractArray{T,M},T2,T3,T4,T5,T6,T7,T8,
     nonlinearity::T5
     pump::T6
     noise_func::T7
-    noise_eltype::T8
+    noise_prototype::T8
     param::T9
     function GrossPitaevskiiProblem(u0, lengths; dispersion::T3=nothing, potential::T4=nothing,
-        nonlinearity::T5=nothing, pump::T6=nothing, noise_func::T7=nothing, noise_eltype::T8=nothing,
+        nonlinearity::T5=nothing, pump::T6=nothing, noise_func::T7=nothing, noise_prototype::T8=nothing,
         param::T9=nothing) where {T3,T4,T5,T6,T7,T8,T9}
         @assert ndims(u0) ≥ length(lengths)
         _u0 = complex(u0)
@@ -20,7 +20,7 @@ struct GrossPitaevskiiProblem{M,N,T,T1<:AbstractArray{T,M},T2,T3,T4,T5,T6,T7,T8,
         T1 = typeof(_u0)
         T2 = typeof(first(_lengths))
         new{M,N,T,T1,T2,T3,T4,T5,T6,T7,T8,T9}(_u0, _lengths, dispersion, potential, nonlinearity,
-            pump, noise_func, noise_eltype, param)
+            pump, noise_func, noise_prototype, param)
     end
 end
 

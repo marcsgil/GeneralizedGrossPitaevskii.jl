@@ -47,8 +47,6 @@ end
 
 get_pump_buffer(::Nothing, args...) = nothing
 
-_next!(progress, show_progress) = show_progress ? next!(progress) : nothing
-
 function evaluate_pump!(prob::GrossPitaevskiiProblem{M,N,T,T1,T2,T3,T4,T5,Nothing},
     args...) where {M,N,T,T1,T2,T3,T4,T5}
     nothing

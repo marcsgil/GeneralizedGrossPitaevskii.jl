@@ -32,12 +32,6 @@ function get_exponential(f, u0, grid, param, δt)
     dest
 end
 
-get_noise(::Nothing, noise_eltype, u) = nothing, nothing
-function get_noise(noise_func, noise_eltype, u)
-    ξ = map(x -> noise_eltype(zero(x)), u)
-    rξ = reinterpret(reshape, noise_eltype, ξ)
-    ξ, rξ
-end
 sample_noise!(::Nothing) = nothing
 sample_noise!(noise) = randn!(noise)
 
@@ -107,9 +101,11 @@ get_δt_combination(::StrangSplittingA, δt) = δt / 2, δt / 2, δt
 get_δt_combination(::StrangSplittingB, δt) = δt / 2, δt, δt / 2
 get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 
+reinterpret_or_nothing(::Nothing) = nothing
+reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
 
-function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
-    result = stack(prob.u0 for _ ∈ 1:solver.nsaves+1)
+function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reduction, workgroup_size)
+    result = stack(reduction(prob.u0) for _ ∈ 1:solver.nsaves+1)
 
     u = ifftshift(prob.u0)
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
@@ -130,24 +126,25 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt)
     exp_Vδt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, δts[2])
     G_δt = _mul(δts[3], prob.nonlinearity)
 
-    ξ, rξ = get_noise(prob.noise_func, prob.noise_eltype, u)
+    ξ = prob.noise_prototype
+    rξ = reinterpret_or_nothing(ξ)
 
     backend = get_backend(prob.u0)
-    muladd_func! = muladd_kernel!(backend)
-    nonlinear_func! = nonlinear_kernel!(backend)
+    muladd_func! = muladd_kernel!(backend, workgroup_size...)
+    nonlinear_func! = nonlinear_kernel!(backend, workgroup_size...)
 
     result, u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, solver, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
-function solve(prob, solver::StrangSplitting, tspan; show_progress=true, fftw_num_threads=1)
+function solve(prob, solver::StrangSplitting, tspan; show_progress=true, reduction=identity, fftw_num_threads=1, workgroup_size=())
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
 
-    get_precomputations(prob, solver, tspan, δt̅)
-    result, u, args... = get_precomputations(prob, solver, tspan, δt̅)
-    _result = @view result[ntuple(n -> :, ndims(prob.u0))..., begin+1:end]
+    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, reduction, workgroup_size)
+    _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+1:end]
+    buffer = similar(prob.u0)
 
     t = tspan[1]
     progress = Progress(steps_per_save * solver.nsaves)
@@ -155,9 +152,12 @@ function solve(prob, solver::StrangSplitting, tspan; show_progress=true, fftw_nu
         for m ∈ 1:steps_per_save
             t += δt̅
             step!(u, args..., t, δt̅)
-            _next!(progress, show_progress)
+            if show_progress
+                next!(progress)
+            end
         end
-        fftshift!(slice, u)
+        fftshift!(buffer, u)
+        slice .= reduction(buffer)
         ts[n+1] = t
     end
     finish!(progress)
