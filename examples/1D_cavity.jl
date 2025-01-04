@@ -1,13 +1,11 @@
 using GeneralizedGrossPitaevskii, CairoMakie, FFTW
 
 function dispersion(ks, param)
-    δ, m, γ, ħ = param
-    -im * γ / 2 + ħ * sum(abs2, ks) / 2m - δ
+    -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2 / param.m - param.δ₀
 end
 
 function potential(rs, param)
-    δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def = param
-    V_damp * damping_potential(rs, -L / 2, L / 2, w_damp) + V_def * exp(-sum(abs2, rs) / w_def^2)
+    param.V_damp * damping_potential(rs, -param.L / 2, param.L / 2, param.w_damp) + param.V_def * exp(-sum(abs2, rs) / param.w_def^2)
 end
 
 function A(t, Amax, t_cycle, t_freeze)
@@ -17,15 +15,13 @@ function A(t, Amax, t_cycle, t_freeze)
 end
 
 function pump(x, param, t)
-    args..., L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze = param
-    (x[1] ≤ -7) * A(t, Amax, t_cycle, t_freeze) * (1 + 3 * (x[1] ≤ (-L / 2 + 10)))
+    (x[1] ≤ -7) * A(t, param.Amax, param.t_cycle, param.t_freeze) * (1 + 3 * (x[1] ≤ (-param.L / 2 + 10))) * cis(x[1] * param.k_pump)
 end
 
 # Space parameters
 L = 1800.0f0
 lengths = (L,)
-N = 512
+N = 1024
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 # Polariton parameters
@@ -54,13 +50,13 @@ t_cycle = 100.0f0
 t_freeze = 95.0f0
 
 # Full parameter tuple
-param = (δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze)
+param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
+    Amax, t_cycle, t_freeze, k_pump)
 
 u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param)
 tspan = (0, 1000.0f0)
-solver = StrangSplittingB(1024, 4.0f-1)
+solver = StrangSplittingB(4096, 4.0f-1)
 ts, sol = solve(prob, solver, tspan)
 
 with_theme(theme_latexfonts()) do
@@ -89,24 +85,19 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-function speed_of_sound(g, n₀, δ, m)
-    √(ħ * (2 * g * n₀ - δ) / m)
-end
-
 function dispersion_relation(k, kₚ, g, n₀, δ, m, branch::Bool)
-    #cₛ = speed_of_sound(g, n₀, δ, m)
     v = ħ * kₚ / m
     pm = branch ? 1 : -1
     gn₀ = g * n₀
-    #v * k + pm * √(ħ^2 * k^4 / 4m^2 + (cₛ * k)^2 + (gn₀ - δ) * (3gn₀ - δ))
-    +pm * √(ħ^2 * k^4 / 4m^2 + (ħ * (2 * g * n₀ - δ) / m) * k^2 + (gn₀ - δ) * (3gn₀ - δ))
+    v * k +pm * √(ħ^2 * k^4 / 4m^2 + (ħ * (2 * g * n₀ - δ) / m) * k^2 + (gn₀ - δ) * (3gn₀ - δ))
 end
 
 
 u0_steady = sol[:, end]
 
 J = 100:220
-δψ = sol[J, 900:end] .- u0_steady[J]
+
+δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
 heatmap(abs2.(δψ))
 ##
 Δt = ts[2] - ts[1]
@@ -136,8 +127,8 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-J = 340:400
-δψ = sol[J, 900:end] .- u0_steady[J]
+J = 700:820
+δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
 heatmap(abs2.(δψ))
 
 
@@ -160,8 +151,8 @@ log_δψ̃[:, J[2]] .= min(log_δψ̃...)
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
-    ω₊ = dispersion_relation.(ks, 0, g, 0, δ₀, m, true)
-    ω₋ = dispersion_relation.(ks, 0, g, 0, δ₀, m, false)
+    ω₊ = dispersion_relation.(ks, k_pump, g, 0, δ, m, true)
+    ω₋ = dispersion_relation.(ks, k_pump, g, 0, δ, m, false)
     heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
     lines!(ax, ks, ω₊, color=:red, linestyle=:dot, linewidth=4)
     lines!(ax, ks, ω₋, color=:blue, linestyle=:dot, linewidth=4)

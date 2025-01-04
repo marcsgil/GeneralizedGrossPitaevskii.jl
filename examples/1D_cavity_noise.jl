@@ -1,7 +1,7 @@
 using GeneralizedGrossPitaevskii, CairoMakie, FFTW, LinearAlgebra
 
 function dispersion(ks, param)
-    -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2 * param.m - param.δ
+    -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2 / param.m - param.δ₀
 end
 
 function potential(rs, param)
@@ -17,7 +17,7 @@ function A(t, Amax, t_cycle, t_freeze)
 end
 
 function pump(x, param, t)
-    (x[1] ≤ -7) * A(t, param.Amax, param.t_cycle, param.t_freeze)
+    (x[1] ≤ -7) * A(t, param.Amax, param.t_cycle, param.t_freeze) * (1 + 3 * (x[1] ≤ (-param.L / 2 + 10))) * cis(x[1] * param.k_pump)
 end
 
 noise_func(ψ, param) = √(param.γ / 2 / param.δL)
@@ -25,7 +25,7 @@ noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 # Space parameters
 L = 800.0f0
 lengths = (L,)
-N = 256
+N = 512
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -44,25 +44,26 @@ V_def = -0.85f0 / ħ
 w_def = 0.75f0
 
 # Pump parameters
-k_pump = 0.27f0
+k_pump = 0.25f0
 δ₀ = ωₚ - ω₀
 δ = δ₀ - ħ * k_pump^2 / 2m
 
 # Bistability cycle parameters
 Imax = 90.0f0
 Amax = √Imax
-t_cycle = 300.0f0
-t_freeze = 280.0f0
+t_cycle = 250.0f0
+t_freeze = 240.0f0
 
 # Full parameter tuple
-param = (; δ, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze, δL)
+param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
+    Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0 = randn(ComplexF32, N, 100) / √(2δL)
+u0 = randn(ComplexF32, N, 10^4) / √(2δL)
+#u0 = zeros(ComplexF32, N, 1)
 noise_prototype = similar(u0)
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param, noise_func, noise_prototype)
-tspan = (0, 500.0f0)
-solver = StrangSplittingB(256, 5.0f-2)
+tspan = (0, 300.0f0)
+solver = StrangSplittingB(256, 3.0f-1)
 ts, sol = solve(prob, solver, tspan)
 
 with_theme(theme_latexfonts()) do
@@ -97,14 +98,16 @@ steady = dropdims(mean(sol[:, :, end], dims=2), dims=2)
 
 expval_n = dropdims(mean(x -> abs2(x) - 1 / 2δL, ψ, dims=2), dims=2)
 
-lines(rs, expval_n)
+J = 210:300
+
+lines(rs[J], expval_n[J])
 ##
 function G2(ψ, δL)
     result = similar(ψ, real(eltype(ψ)), (length(ψ), length(ψ)))
     for (n, Ψp) ∈ enumerate(ψ), (m, Ψ) ∈ enumerate(ψ)
         a2Ψ = abs2(Ψ)
         a2Ψp = abs2(Ψp)
-        result[m, n] = a2Ψ * a2Ψp - (1 + m == n) / 2δL * (a2Ψ + a2Ψp - 1 / 2δL)
+        result[m, n] = a2Ψ * a2Ψp - (1 + (m == n)) / 2δL * (a2Ψ + a2Ψp - 1 / 2δL)
     end
     result
 end
@@ -113,4 +116,7 @@ G2_val = mean(ψ -> G2(ψ, δL), eachslice(ψ, dims=2))
 ##
 g2 = G2_val ./ (expval_n * expval_n')
 
-heatmap(rs, rs, g2, colormap=:hot, colorrange=(-1, 7))
+g2[J, J]
+
+extrema(g2)
+heatmap(rs[J], rs[J], g2[J, J], colormap=:hot, colorrange=(-1,10))
