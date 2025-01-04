@@ -5,7 +5,7 @@
     Fδt_next_val = _mul(δt / 2, _getindex(F_next, K))
     Fδt_now_val = _mul(δt / 2, _getindex(F_now, K))
     ξ_val = _getindex(ξ, K)
-    noise = _mul(δt, mul_noise(noise_func, ξ_val, dest[K...], param))
+    noise = _mul(√δt, mul_noise(noise_func, ξ_val, dest[K...], param))
 
     dest[K...] = _add(_mul(exp_δt_val, _add(dest[K...], Fδt_now_val)), Fδt_next_val)
     dest[K...] = _add(dest[K...], noise)
