@@ -104,8 +104,8 @@ get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 reinterpret_or_nothing(::Nothing) = nothing
 reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
 
-function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reduction, workgroup_size)
-    result = stack(reduction(prob.u0) for _ ∈ 1:solver.nsaves+1)
+function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reduction, workgroup_size, save_start)
+    result = stack(reduction(prob.u0, prob.param) for _ ∈ 1:solver.nsaves+save_start)
 
     u = ifftshift(prob.u0)
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
@@ -137,13 +137,19 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reductio
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
-function solve(prob, solver::StrangSplitting, tspan; show_progress=true, reduction=identity, fftw_num_threads=1, workgroup_size=())
+function solve(prob, solver::StrangSplitting, tspan;
+    show_progress=true,
+    reduction=(sol, param) -> sol,
+    save_start=true,
+    fftw_num_threads=1,
+    workgroup_size=())
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
 
-    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, reduction, workgroup_size)
-    _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+1:end]
+    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, reduction, workgroup_size, save_start)
+    _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+save_start:end]
+    @show size(_result)
     buffer = similar(prob.u0)
 
     t = tspan[1]
@@ -157,10 +163,10 @@ function solve(prob, solver::StrangSplitting, tspan; show_progress=true, reducti
             end
         end
         fftshift!(buffer, u)
-        slice .= reduction(buffer)
+        slice .= reduction(buffer, prob.param)
         ts[n+1] = t
     end
     finish!(progress)
 
-    ts, result
+    ts[begin+1-save_start:end], result
 end
