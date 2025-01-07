@@ -149,7 +149,6 @@ function solve(prob, solver::StrangSplitting, tspan;
 
     result, u, args... = get_precomputations(prob, solver, tspan, δt̅, reduction, workgroup_size, save_start)
     _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+save_start:end]
-    @show size(_result)
     buffer = similar(prob.u0)
 
     t = tspan[1]

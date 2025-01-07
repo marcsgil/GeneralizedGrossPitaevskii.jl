@@ -25,7 +25,7 @@ noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 # Space parameters
 L = 300.0f0
 lengths = (L,)
-N = 1024
+N = 512
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -37,7 +37,8 @@ g = 0.0003f0 / ħ
 δ₀ = 0.49 / ħ
 
 # Potential parameters
-V_damp = 10.0f0
+#V_damp = 10.0f0
+V_damp=0f0
 w_damp = 1.0f0
 V_def = -0.85f0 / ħ
 w_def = 0.75f0
@@ -57,7 +58,7 @@ param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
 function reduction(ψ, param)
-    #mapreduce(x -> abs2.(x), +, eachslice(ψ, dims=2)) / size(ψ)[end]
+    mapreduce(x -> abs2.(x), +, eachslice(ψ, dims=2)) / size(ψ)[end]
 
     steady = mean(ψ, dims=2)
     δψ = reshape(ψ .- steady, 1, size(ψ)...)
@@ -69,12 +70,13 @@ function reduction(ψ, param)
     (corr - (1 .+ δ) .* (n .+ n' .+ 1 / 2param.δL) / 2param.δL) ./ (n .* n')
 end
 
-u0 = CUDA.randn(ComplexF32, N, 10^3) / √(2δL)
+u0 = CUDA.randn(ComplexF32, N, 10^4) / √(2δL)
 noise_prototype = similar(u0)
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param, noise_func, noise_prototype)
 tspan = (0, 350.0f0)
 solver = StrangSplittingB(1, 9.0f-3)
 ts, sol = solve(prob, solver, tspan; save_start=false, reduction)
+
 
 J = 256-50:256+50
 lines(rs[:], real(Array(sol)[:, 1]))
@@ -83,7 +85,7 @@ sol
 
 J = 256-50:256+50
 
-heatmap(rs[:], rs[:], real(Array(sol)[:,:, 1]), colorrange=(-1, 1020))
+heatmap(rs[:], rs[:], real(Array(sol)[:,:, 1]), colorrange=(1,4))
 ##
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
