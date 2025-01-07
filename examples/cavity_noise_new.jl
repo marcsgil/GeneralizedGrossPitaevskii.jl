@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics
+using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions
 
 function dispersion(ks, param)
     -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2param.m - param.δ₀
@@ -22,23 +22,23 @@ function pump(x, param, t)
     elseif -param.L * 0.9 / 2 < x[1] ≤ -param.L * 0.85 / 2
         a *= 4
     end
-
     a * cis(mapreduce(*, +, param.k_pump, x))
 end
 
 noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 
 # Space parameters
-L = 250.0f0
+L = 600.0f0
 lengths = (L,)
-N = 256
+N = 1024
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 # Polariton parameters
 ħ = 0.6582f0 #meV.ps
 γ = 0.047f0 / ħ
-m = ħ^2 / (2 * 1.29f0)
+#m = ħ^2 / (2 * 1.29f0)
+m = ħ^2 / (2 * 2.0f-1)
 nonlinearity = 0.0003f0 / ħ
 δ₀ = 0.49 / ħ
 
@@ -55,35 +55,93 @@ k_pump = 0.25f0
 # Bistability cycle parameters
 Imax = 90.0f0
 Amax = √Imax
-t_cycle = 250.0f0
-t_freeze = 236.0f0
+t_cycle = 500.0f0
+t_freeze = 470.0f0
+
+δt = 8.0f-2
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
-function reduction(ψ, param)
-    # mapreduce(x -> abs2.(x), +, eachslice(ψ, dims=2)) / size(ψ)[end]
+u0_empty = CUDA.zeros(ComplexF32, N)
+prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
+tspan_steady = (0, 800.0f0)
+solver_steady = StrangSplittingB(512, δt)
+ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady)
 
-    steady = mean(ψ, dims=2)
-    δψ = reshape(ψ .- steady, 1, size(ψ)...)
-    δψ′ = permutedims(δψ, (2, 1, 3))
-    n = dropdims(mean(abs2, δψ, dims=3), dims=(1, 3)) .- 1 / 2param.δL
+steady_state = @view sol_steady[:, end]
 
-    corr = mapreduce((x, y) -> abs2.(x) .* abs2.(y), +, eachslice(δψ, dims=3), eachslice(δψ′, dims=3)) / size(ψ)[end]
-    δ = one(corr)
-    (corr - (1 .+ δ) .* (n .+ n' .+ 1 / 2param.δL) / 2param.δL) ./ (n .* n')
+heatmap(rs, ts_steady, Array(abs2.(sol_steady)))
+##
+function one_point_corr!(dest, sol)
+    backend = get_backend(dest)
+
+    @kernel function kernel!(dest, sol)
+        j = @index(Global)
+        x = zero(eltype(dest))
+        for k ∈ axes(sol, 2)
+            x += abs2(sol[j, k])
+        end
+        dest[j] += x
+    end
+
+    kernel!(backend, 64)(dest, sol, ndrange=length(dest))
+    KernelAbstractions.synchronize(backend)
 end
 
-u0 = CUDA.randn(ComplexF32, N, 5 * 10^4) / √(2δL)
-noise_prototype = similar(u0)
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity, pump, param, noise_func, noise_prototype)
-tspan = (0, 400.0f0)
-solver = StrangSplittingB(1, 5.0f-2)
-ts, sol = solve(prob, solver, tspan; save_start=false, reduction)
+function two_point_corr!(dest, sol)
+    backend = get_backend(dest)
 
-J = 256-50:256+50
-lines(rs[:], real(Array(sol)[:, 1]))
+    @kernel function kernel!(dest, sol)
+        j, k = @index(Global, NTuple)
+        x = zero(eltype(dest))
+        for m ∈ axes(sol, 2)
+            x += abs2(sol[j, m]) * abs2(sol[k, m])
+        end
+        dest[j, k] += x
+    end
+
+    kernel!(backend, 64)(dest, sol, ndrange=size(dest))
+    KernelAbstractions.synchronize(backend)
+end
+
+function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
+    u0_steady = stack(steady_state for _ ∈ 1:batchsize)
+    noise_prototype = similar(u0_steady)
+
+    prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
+    solver = StrangSplittingB(1, δt)
+
+    one_point = similar(steady_state, real(eltype(steady_state)))
+    two_point = similar(steady_state, real(eltype(steady_state)), size(steady_state, 1), size(steady_state, 1))
+
+    fill!(one_point, 0)
+    fill!(two_point, 0)
+
+    for batch ∈ 1:nbatches
+        @info "Batch $batch"
+        ts, _sol = solve(prob, solver, tspan; save_start=false)
+        sol = dropdims(_sol, dims=3)
+
+        one_point_corr!(one_point, sol)
+        two_point_corr!(two_point, sol)
+    end
+
+    one_point /= nbatches * batchsize
+    two_point /= nbatches * batchsize
+
+    δ = one(two_point)
+    factor = 1 / 2param.δL
+    n = one_point .- factor
+
+    (two_point .- factor .* (1 .+ δ) .* (n .+ n' .+ factor)) ./ (n .* n')
+end
+
+tspan_noise = (0.0f0, 100.0f0) .+ tspan_steady[end]
+
+G2 = calculate_correlation(steady_state, lengths, 10^4, 10^2, tspan_noise, δt;
+    dispersion, potential, nonlinearity, pump, param, noise_func)
 ##
-J = N÷2-50:N÷2+50
-heatmap(rs[J], rs[J], real(Array(sol)[J, J, 1]), colorrange=(0, 7))
+J = N÷2-100:N÷2+100
+heatmap(rs[J], rs[J], Array(real(G2)[J, J]), colorrange = (-5e-5, 5e-5) .+1)
