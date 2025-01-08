@@ -1,11 +1,12 @@
-using GeneralizedGrossPitaevskii, CairoMakie, FFTW
+using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions
 
 function dispersion(ks, param)
-    -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2 / param.m - param.δ₀
+    -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2param.m - param.δ₀
 end
 
 function potential(rs, param)
-    param.V_damp * damping_potential(rs, -param.L / 2, param.L / 2, param.w_damp) + param.V_def * exp(-sum(abs2, rs) / param.w_def^2)
+    param.V_def * exp(-sum(abs2, rs) / param.w_def^2) +
+    param.V_damp * damping_potential(rs, -param.L / 2, param.L / 2, param.w_damp)
 end
 
 function A(t, Amax, t_cycle, t_freeze)
@@ -15,146 +16,145 @@ function A(t, Amax, t_cycle, t_freeze)
 end
 
 function pump(x, param, t)
-    (x[1] ≤ -7) * A(t, param.Amax, param.t_cycle, param.t_freeze) * (1 + 3 * (x[1] ≤ (-param.L / 2 + 10))) * cis(x[1] * param.k_pump)
+    a = A(t, param.Amax, param.t_cycle, param.t_freeze)
+    if x[1] ≤ -param.L * 0.9 / 2 || x[1] ≥ -7
+        a *= 0
+    elseif -param.L * 0.9 / 2 < x[1] ≤ -param.L * 0.85 / 2
+        a *= 1
+    end
+    a * cis(mapreduce(*, +, param.k_pump, x))
 end
 
+noise_func(ψ, param) = √(param.γ / 2 / param.δL)
+
 # Space parameters
-L = 1800.0f0
+L = 1024.0f0
 lengths = (L,)
 N = 1024
+δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 # Polariton parameters
 ħ = 0.6582f0 #meV.ps
-ω₀ = 1473.36f0 / ħ
-ωₚ = 1473.85f0 / ħ
 γ = 0.047f0 / ħ
-m = ħ^2 / (2 * 1.29f0)
-g = 0.0003f0 / ħ
+#m = ħ^2 / (2 * 1.29f0)
+m = 1f0
+nonlinearity = 0.0003f0 / ħ
+δ₀ = 0.49 / ħ
 
 # Potential parameters
 V_damp = 10.0f0
-w_damp = 0.1f0
+w_damp = 1.0f0
 V_def = -0.85f0 / ħ
 w_def = 0.75f0
 
 # Pump parameters
-k_pump = 0.27f0
-δ₀ = ωₚ - ω₀
+k_pump = 0.25f0
 δ = δ₀ - ħ * k_pump^2 / 2m
 
 # Bistability cycle parameters
-Imax = 90.0f0
+Imax = 130.0f0
 Amax = √Imax
-t_cycle = 100.0f0
-t_freeze = 95.0f0
+t_cycle = 300.0f0
+t_freeze = 275.0f0
+
+δt = 1.0f-1
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze, k_pump)
+    Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param)
-tspan = (0, 1000.0f0)
-solver = StrangSplittingB(4096, 4.0f-1)
-ts, sol = solve(prob, solver, tspan)
+u0_empty = CUDA.zeros(ComplexF32, N)
+prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
+tspan_steady = (0, 800.0f0)
+solver_steady = StrangSplittingB(512, δt)
+ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady)
+
+steady_state = @view sol_steady[:, end]
+
+heatmap(rs, ts_steady, Array(abs2.(sol_steady)))
+##
+J = N÷2-70:N÷2+70
+lines(rs[J], Array(abs2.(steady_state[J])))
+
+##
+function one_point_corr!(dest, sol)
+    backend = get_backend(dest)
+
+    @kernel function kernel!(dest, sol)
+        j = @index(Global)
+        x = zero(eltype(dest))
+        for k ∈ axes(sol, 2)
+            x += abs2(sol[j, k])
+        end
+        dest[j] += x
+    end
+
+    kernel!(backend, 64)(dest, sol, ndrange=length(dest))
+    KernelAbstractions.synchronize(backend)
+end
+
+function two_point_corr!(dest, sol)
+    backend = get_backend(dest)
+
+    @kernel function kernel!(dest, sol)
+        j, k = @index(Global, NTuple)
+        x = zero(eltype(dest))
+        for m ∈ axes(sol, 2)
+            x += abs2(sol[j, m]) * abs2(sol[k, m])
+        end
+        dest[j, k] += x
+    end
+
+    kernel!(backend, 64)(dest, sol, ndrange=size(dest))
+    KernelAbstractions.synchronize(backend)
+end
+
+function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
+    u0_steady = stack(steady_state for _ ∈ 1:batchsize)
+    noise_prototype = similar(u0_steady)
+
+    prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
+    solver = StrangSplittingB(1, δt)
+
+    one_point = similar(steady_state, real(eltype(steady_state)))
+    two_point = similar(steady_state, real(eltype(steady_state)), size(steady_state, 1), size(steady_state, 1))
+
+    fill!(one_point, 0)
+    fill!(two_point, 0)
+
+    for batch ∈ 1:nbatches
+        @info "Batch $batch"
+        ts, _sol = solve(prob, solver, tspan; save_start=false, reuse_u0=true)
+        sol = dropdims(_sol, dims=3)
+
+        one_point_corr!(one_point, sol)
+        two_point_corr!(two_point, sol)
+    end
+
+    one_point /= nbatches * batchsize
+    two_point /= nbatches * batchsize
+
+    δ = one(two_point)
+    factor = 1 / 2param.δL
+    n = one_point .- factor
+
+    (two_point .- factor .* (1 .+ δ) .* (n .+ n' .+ factor)) ./ (n .* n')
+end
+
+tspan_noise = (0.0f0, 50.0f0) .+ tspan_steady[end]
+
+G2 = calculate_correlation(steady_state, lengths, 10^5, 10^2, tspan_noise, δt;
+    dispersion, potential, nonlinearity, pump, param, noise_func)
+
+##
+J = N÷2-70:N÷2+70
 
 with_theme(theme_latexfonts()) do
-    fig = Figure(fontsize=20)
-    ax = Axis(fig[1, 1]; xlabel="x", ylabel="t")
-    heatmap!(ax, rs, ts, Array(abs2.(sol)))
-    fig
-end
-##
-Is = @. A(ts, Amax, t_cycle, t_freeze)^2
-
-function bistability_curve(n, δ, g, γ)
-    n * (γ^2 / 4 + (g * n - δ)^2)
-end
-
-ns_theo = LinRange(0, 1800, 512)
-Is_theo = [bistability_curve(n, δ, g, γ) for n ∈ ns_theo]
-ns = abs2.(sol[N÷4, :])
-
-with_theme(theme_latexfonts()) do
-    fig = Figure(fontsize=24)
-    ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
-    lines!(Is, ns; label="Simulation", color=:red, linewidth=5)
-    lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
-    axislegend(ax, position=:lt)
-    fig
-end
-##
-function dispersion_relation(k, kₚ, g, n₀, δ, m, branch::Bool)
-    v = ħ * kₚ / m
-    pm = branch ? 1 : -1
-    gn₀ = g * n₀
-    v * k +pm * √(ħ^2 * k^4 / 4m^2 + (ħ * (2 * g * n₀ - δ) / m) * k^2 + (gn₀ - δ) * (3gn₀ - δ))
-end
-
-
-u0_steady = sol[:, end]
-
-J = 100:220
-
-δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
-heatmap(abs2.(δψ))
-##
-Δt = ts[2] - ts[1]
-Δx = rs[2] - rs[1]
-
-Nx = size(δψ, 1)
-Nt = size(δψ, 2)
-
-ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
-ωs = range(; start=-π / Δt, step=2π / (Nt * Δt), length=Nt)
-
-
-log_δψ̃ = δψ |> fftshift |> fft |> ifftshift .|> abs .|> log
-reverse!(log_δψ̃, dims=2)
-J = argmax(log_δψ̃)
-log_δψ̃[J[1], :] .= min(log_δψ̃...)
-log_δψ̃[:, J[2]] .= min(log_δψ̃...)
-
-with_theme(theme_latexfonts()) do
-    fig = Figure(fontsize=20)
-    ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
-    ω₊ = dispersion_relation.(ks, k_pump, g, ns[end], δ, m, true)
-    ω₋ = dispersion_relation.(ks, k_pump, g, ns[end], δ, m, false)
-    heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
-    lines!(ax, ks, ω₊, color=:grey, linestyle=:dot, linewidth=4)
-    lines!(ax, ks, ω₋, color=:grey, linestyle=:dot, linewidth=4)
-    fig
-end
-##
-J = 700:820
-δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
-heatmap(abs2.(δψ))
-
-
-Δt = ts[2] - ts[1]
-Δx = rs[2] - rs[1]
-
-Nx = size(δψ, 1)
-Nt = size(δψ, 2)
-
-ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
-ωs = range(; start=-π / Δt, step=2π / (Nt * Δt), length=Nt)
-
-
-log_δψ̃ = δψ |> ifftshift |> fft |> fftshift .|> abs .|> log
-reverse!(log_δψ̃, dims=2)
-J = argmax(log_δψ̃)
-log_δψ̃[J[1], :] .= min(log_δψ̃...)
-log_δψ̃[:, J[2]] .= min(log_δψ̃...)
-
-with_theme(theme_latexfonts()) do
-    fig = Figure(fontsize=20)
-    ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
-    ω₊ = dispersion_relation.(ks, k_pump, g, 0, δ, m, true)
-    ω₋ = dispersion_relation.(ks, k_pump, g, 0, δ, m, false)
-    heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
-    lines!(ax, ks, ω₊, color=:red, linestyle=:dot, linewidth=4)
-    lines!(ax, ks, ω₋, color=:blue, linestyle=:dot, linewidth=4)
+    fig = Figure(; size=(730, 600), fontsize=20)
+    ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel = L"x", ylabel = L"x\prime")
+    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e4, colorrange=(-1, 1))
+    Colorbar(fig[1,2], hm, label = L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
+    save("dev_env/g2m1.pdf", fig)
     fig
 end
