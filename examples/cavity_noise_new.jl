@@ -121,7 +121,7 @@ function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan
 
     for batch ∈ 1:nbatches
         @info "Batch $batch"
-        ts, _sol = solve(prob, solver, tspan; save_start=false)
+        ts, _sol = solve(prob, solver, tspan; save_start=false, reuse_u0=true)
         sol = dropdims(_sol, dims=3)
 
         one_point_corr!(one_point, sol)
@@ -140,8 +140,9 @@ end
 
 tspan_noise = (0.0f0, 100.0f0) .+ tspan_steady[end]
 
-G2 = calculate_correlation(steady_state, lengths, 10^4, 10^2, tspan_noise, δt;
+G2 = calculate_correlation(steady_state, lengths, 10^5, 10^0, tspan_noise, δt;
     dispersion, potential, nonlinearity, pump, param, noise_func)
+
 ##
 J = N÷2-100:N÷2+100
-heatmap(rs[J], rs[J], Array(real(G2)[J, J]), colorrange = (-5e-5, 5e-5) .+1)
+heatmap(rs[J], rs[J], Array(real(G2)[J, J]), colorrange=(-5e-5, 5e-5) .+ 1)

@@ -42,7 +42,7 @@ mul_noise(noise_func, ξ, args...) = _mul(noise_func(args...), ξ)
 
 function get_pump_buffer(pump, u, lengths, param, t)
     T = pump(lengths, param, t) |> typeof
-    similar(u, T)
+    similar(u, T, size(u)[1:length(lengths)])
 end
 
 get_pump_buffer(::Nothing, args...) = nothing

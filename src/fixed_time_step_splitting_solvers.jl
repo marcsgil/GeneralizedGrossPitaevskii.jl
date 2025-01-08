@@ -27,7 +27,7 @@ get_exponential(::Nothing, u0, grid, param, δt) = nothing
 function get_exponential(f, u0, grid, param, δt)
     cis_f(x, param) = _cis(-δt * f(x, param))
     T = cis_f(ntuple(m -> first(grid[m]), length(grid)), param) |> typeof
-    dest = similar(u0, T)
+    dest = similar(u0, T, size(u0)[1:length(grid)])
     grid_map!(dest, cis_f, grid, param)
     dest
 end
@@ -47,7 +47,7 @@ function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, pro
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
@@ -57,7 +57,7 @@ function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
@@ -67,7 +67,7 @@ function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
@@ -104,21 +104,25 @@ get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 reinterpret_or_nothing(::Nothing) = nothing
 reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
 
-function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reduction, workgroup_size, save_start)
-    result = stack(reduction(prob.u0, prob.param) for _ ∈ 1:solver.nsaves+save_start)
+function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgroup_size, save_start, reuse_u0)
+    #= if reuse_u0
+        @assert solver.nsaves == 1 && !save_start "In order to reuse `u0`, one must save only 1 point and set `save_start` to `false`."
+        result = prob.u0
+    else
+        result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
+    end =#
+
+    result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
 
     u = ifftshift(prob.u0)
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
     buffer_now = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
     evaluate_pump!(prob, buffer_next, tspan[1])
-    fft_buffer = similar(u)
 
-    T = eltype(u)
-    ru = reinterpret(reshape, eltype(T), u)
-    fft_rbuffer = reinterpret(reshape, eltype(T), fft_buffer)
+    ru = reinterpret(reshape, eltype(eltype(u)), u)
 
-    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(fft_rbuffer) - ndims(fft_buffer))
-    plan = plan_fft(fft_rbuffer, ftdims)
+    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(ru) - ndims(u))
+    plan = plan_fft(ru, ftdims)
     iplan = inv(plan)
 
     δts = get_δt_combination(solver, δt)
@@ -133,36 +137,35 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, reductio
     muladd_func! = muladd_kernel!(backend, workgroup_size...)
     nonlinear_func! = nonlinear_kernel!(backend, workgroup_size...)
 
-    result, u, ru, buffer_next, buffer_now, fft_buffer, fft_rbuffer, prob, solver, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+    result, u, ru, buffer_next, buffer_now, prob, solver, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
 function solve(prob, solver::StrangSplitting, tspan;
     show_progress=true,
-    reduction=(sol, param) -> sol,
     save_start=true,
     fftw_num_threads=1,
-    workgroup_size=())
+    workgroup_size=(),
+    reuse_u0=false)
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
 
-    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, reduction, workgroup_size, save_start)
+    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, workgroup_size, save_start, reuse_u0)
     _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+save_start:end]
-    buffer = similar(prob.u0)
 
     t = tspan[1]
     progress = Progress(steps_per_save * solver.nsaves)
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
         for m ∈ 1:steps_per_save
             t += δt̅
-            step!(u, args..., t, δt̅)
+            rslice = reinterpret(reshape, eltype(eltype(u)), slice)
+            step!(u, slice, rslice, args..., t, δt̅)
             if show_progress
                 next!(progress)
             end
         end
-        fftshift!(buffer, u)
-        slice .= reduction(buffer, prob.param)
+        fftshift!(slice, u)
         ts[n+1] = t
     end
     finish!(progress)
