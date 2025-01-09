@@ -1,4 +1,10 @@
-using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions
+using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW
+include("polariton_funcs.jl")
+
+function abs2k_cutoff(ks)
+    result = sum(abs2, ks)
+    result * (result ≤ 70)
+end
 
 function dispersion(ks, param)
     -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2param.m - param.δ₀
@@ -9,6 +15,7 @@ function potential(rs, param)
     param.V_damp * damping_potential(rs, -param.L / 2, param.L / 2, param.w_damp)
 end
 
+
 function A(t, Amax, t_cycle, t_freeze)
     _t = ifelse(t > t_freeze, t_freeze, t)
     val = Amax * _t * (t_cycle - _t) * 4 / t_cycle^2
@@ -17,10 +24,10 @@ end
 
 function pump(x, param, t)
     a = A(t, param.Amax, param.t_cycle, param.t_freeze)
-    if x[1] ≤ -param.L * 0.9 / 2 || x[1] ≥ -7
+    if x[1] ≤ -param.L * 0.9 / 2 || x[1] ≥ -10
         a *= 0
     elseif -param.L * 0.9 / 2 < x[1] ≤ -param.L * 0.85 / 2
-        a *= 1
+        a *= 6
     end
     a * cis(mapreduce(*, +, param.k_pump, x))
 end
@@ -28,17 +35,16 @@ end
 noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 
 # Space parameters
-L = 1024.0f0
+L = 1600.0f0
 lengths = (L,)
-N = 1024
+N = 2048
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 # Polariton parameters
 ħ = 0.6582f0 #meV.ps
 γ = 0.047f0 / ħ
-#m = ħ^2 / (2 * 1.29f0)
-m = 1f0
+m = ħ^2 / 2.5f0
 nonlinearity = 0.0003f0 / ħ
 δ₀ = 0.49 / ħ
 
@@ -53,12 +59,12 @@ k_pump = 0.25f0
 δ = δ₀ - ħ * k_pump^2 / 2m
 
 # Bistability cycle parameters
-Imax = 130.0f0
+Imax = 90.0f0
 Amax = √Imax
 t_cycle = 300.0f0
-t_freeze = 275.0f0
+t_freeze = 288.0f0
 
-δt = 1.0f-1
+δt = 2.0f-2
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
@@ -70,13 +76,58 @@ tspan_steady = (0, 800.0f0)
 solver_steady = StrangSplittingB(512, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady)
 
-steady_state = @view sol_steady[:, end]
-
+steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(sol_steady)))
 ##
-J = N÷2-70:N÷2+70
-lines(rs[J], Array(abs2.(steady_state[J])))
+with_theme(theme_latexfonts()) do
+    fig = Figure(; fontsize=20)
+    ax = Axis(fig[1, 1], xlabel=L"x", ylabel=L"n")
+    offset = 150
+    J = N÷2-offset:N÷2+offset
+    lines!(ax, rs[J], nonlinearity * Array(abs2.(steady_state[J])), linewidth=4)
+    fig
+end
+##
+ks = GeneralizedGrossPitaevskii.reciprocal_grid(prob_steady)[1]
 
+ϕ₊ = angle.(steady_state[2:end])
+ϕ₋ = angle.(steady_state[1:end-1])
+∇ϕ = mod2pi.(ϕ₊ - ϕ₋) / δL
+v = ħ * ∇ϕ / m
+
+ψ₀ = steady_state[2:end-1]
+ψ₊ = steady_state[3:end]
+ψ₋ = steady_state[1:end-2]
+∇ψ = (ψ₊ + ψ₋ - 2ψ₀) / param.δL^2
+δ_vec = δ₀ .+ ħ * real(∇ψ ./ ψ₀) / 2m
+
+c = [speed_of_sound(abs2(ψ), δ, nonlinearity, ħ, m) for (ψ, δ) ∈ zip(Array(steady_state[2:end-1]), Array(δ_vec))]
+
+with_theme(theme_latexfonts()) do
+    fig = Figure(; fontsize=20)
+    ax = Axis(fig[1, 1], xlabel=L"x")
+    offset = 100
+    J = N÷2-offset:N÷2+offset
+    lines!(ax, rs[J], c[J], linewidth=4, color=:blue, label=L"c")
+    lines!(ax, rs[J], Array(v[J]), linewidth=4, color=:red, label=L"v")
+    axislegend()
+    fig
+end
+##
+ns_theo = LinRange(0, 1500, 512)
+Is_theo = eq_of_state.(ns_theo, δ, nonlinearity, γ)
+
+n_up = abs2(Array(sol_steady)[N÷4, end])
+n_down = abs2(Array(sol_steady)[3N÷4, end])
+
+with_theme(theme_latexfonts()) do
+    fig = Figure(fontsize=16)
+    ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
+    lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=4, label="Theoretical")
+    A_stop = A(Inf, param.Amax, param.t_cycle, param.t_freeze)
+    scatter!(ax, abs2(A_stop), abs2(Array(steady_state)[N÷4, end]), color=:black, markersize=16)
+    fig
+end
 ##
 function one_point_corr!(dest, sol)
     backend = get_backend(dest)
@@ -112,6 +163,7 @@ end
 
 function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
     u0_steady = stack(steady_state for _ ∈ 1:batchsize)
+    #u0_steady = CUDA.randn(eltype(steady_state), length(steady_state), batchsize) ./ 2param.δL .+ steady_state
     noise_prototype = similar(u0_steady)
 
     prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
@@ -144,17 +196,16 @@ end
 
 tspan_noise = (0.0f0, 50.0f0) .+ tspan_steady[end]
 
-G2 = calculate_correlation(steady_state, lengths, 10^5, 10^2, tspan_noise, δt;
+G2 = calculate_correlation(steady_state, lengths, 10^5, 20, tspan_noise, δt;
     dispersion, potential, nonlinearity, pump, param, noise_func)
-
 ##
-J = N÷2-70:N÷2+70
+J = N÷2-130:N÷2+130
 
 with_theme(theme_latexfonts()) do
     fig = Figure(; size=(730, 600), fontsize=20)
-    ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel = L"x", ylabel = L"x\prime")
-    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e4, colorrange=(-1, 1))
-    Colorbar(fig[1,2], hm, label = L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
+    ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel=L"x", ylabel=L"x\prime")
+    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e5, colorrange=(-5, 5), colormap=:inferno)
+    Colorbar(fig[1, 2], hm, label=L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
     save("dev_env/g2m1.pdf", fig)
     fig
 end
