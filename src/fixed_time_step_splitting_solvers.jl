@@ -47,33 +47,33 @@ function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, pro
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, G_δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, G_δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, G_δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
 end
 
@@ -104,14 +104,7 @@ get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 reinterpret_or_nothing(::Nothing) = nothing
 reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
 
-function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgroup_size, save_start, reuse_u0)
-    #= if reuse_u0
-        @assert solver.nsaves == 1 && !save_start "In order to reuse `u0`, one must save only 1 point and set `save_start` to `false`."
-        result = prob.u0
-    else
-        result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
-    end =#
-
+function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgroup_size, save_start)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
 
     u = ifftshift(prob.u0)
@@ -128,7 +121,6 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgrou
     δts = get_δt_combination(solver, δt)
     exp_Dδt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, δts[1])
     exp_Vδt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, δts[2])
-    G_δt = _mul(δts[3], prob.nonlinearity)
 
     ξ = prob.noise_prototype
     rξ = reinterpret_or_nothing(ξ)
@@ -137,7 +129,7 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgrou
     muladd_func! = muladd_kernel!(backend, workgroup_size...)
     nonlinear_func! = nonlinear_kernel!(backend, workgroup_size...)
 
-    result, u, ru, buffer_next, buffer_now, prob, solver, exp_Dδt, exp_Vδt, G_δt, ξ, rξ,
+    result, u, ru, buffer_next, buffer_now, prob, solver, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
@@ -146,12 +138,12 @@ function solve(prob, solver::StrangSplitting, tspan;
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
-    reuse_u0=false)
+    )
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
 
-    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, workgroup_size, save_start, reuse_u0)
+    result, u, args... = get_precomputations(prob, solver, tspan, δt̅, workgroup_size, save_start)
     _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+save_start:end]
 
     t = tspan[1]

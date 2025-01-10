@@ -9,9 +9,10 @@ using GeneralizedGrossPitaevskii
     γ = 0.1f0
 
     function dispersion(ks, param)
-        tmax, Imax, width, ωₚ, ω₀, kz, γ = param
-        -im * γ / 2 + ω₀ * (1 + sum(abs2, ks) / 2kz^2) - ωₚ
+        -im * param.γ / 2 + param.ω₀ * (1 + sum(abs2, ks) / 2param.kz^2) - param.ωₚ
     end
+
+    nonlinearity(ψ, param) = param.g * abs2.(ψ)
 
     function I(t, tmax, Imax)
         val = -Imax * t * (t - tmax) * 4 / tmax^2
@@ -19,8 +20,7 @@ using GeneralizedGrossPitaevskii
     end
 
     function pump(x, param, t)
-        tmax, Imax, width = param
-        exp(-sum(abs2, x) / width^2) * √I(t, tmax, Imax)
+        exp(-sum(abs2, x) / param.width^2) * √I(t, param.tmax, param.Imax)
     end
 
     function bistability_curve(n, δ, g, γ)
@@ -39,9 +39,9 @@ using GeneralizedGrossPitaevskii
     tspan = (0, 3300f0)
     tmax = tspan[end]
 
-    param = (tmax, Imax, width, ωₚ, ω₀, kz, γ)
+    param = (; tmax, Imax, width, ωₚ, ω₀, kz, γ, g)
 
-    prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity=g, pump, param)
+    prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
     for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
         solver = Tsolver(nsaves, δt)
@@ -59,11 +59,12 @@ using GeneralizedGrossPitaevskii
         @test sum(error[140:400]) / length(Is) ≤ 3e-3
 
         new_u0 = [SVector(val) for val ∈ u0]
-        for type ∈ (identity, SVector, SMatrix{1,1}), nonlinearity ∈ (g, SVector(g), SMatrix{1,1}(g))
+        for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
             for pump_type ∈ (identity, SVector)
                 new_dispersion(args...) = type(dispersion(args...))
+                new_nonlinearity(args...) = type′(nonlinearity(args...))
                 new_pump(args...) = pump_type(pump(args...))
-                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity, pump, param)
+                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
                 ts, sol2 = solve(prob2, solver, tspan; show_progress=false)
                 @test reinterpret(reshape, ComplexF32, sol2) ≈ sol
             end

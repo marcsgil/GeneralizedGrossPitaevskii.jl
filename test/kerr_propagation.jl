@@ -12,7 +12,10 @@
         u0 = lg(rs, rs, l=rand(-5:5)) + lg(rs, rs, l=rand(-5:5))
 
         dispersion(ks, param) = sum(abs2, ks) / 2
-        prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity=g / 2)
+        nonlinearity(ψ, param) = param.g * abs2.(ψ) / 2
+
+        param = (; g)
+        prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param)
 
         tspan = (0, nsteps * δt)
         for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
@@ -22,9 +25,10 @@
             @test sol ≈ good_sol
 
             new_u0 = [SVector(val) for val ∈ u0]
-            for type ∈ (identity, SVector, SMatrix{1,1}), nonlinearity ∈ (g / 2, SVector(g / 2), SMatrix{1,1}(g / 2))
+            for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
                 new_dispersion(args...) = type(dispersion(args...))
-                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity)
+                new_nonlinearity(args...) = type(nonlinearity(args...))
+                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, param)
                 ts, sol = solve(prob2, solver, tspan; show_progress=false)
                 @test reinterpret(reshape, ComplexF32, sol) ≈ good_sol
             end
