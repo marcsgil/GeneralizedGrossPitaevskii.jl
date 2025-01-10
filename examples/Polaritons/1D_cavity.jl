@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW
+using Revise, GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW
 include("polariton_funcs.jl")
 
 function dispersion(ks, param)
@@ -71,7 +71,7 @@ u0_empty = CUDA.zeros(ComplexF32, N, 100)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 800.0f0)
 solver_steady = StrangSplittingB(512, δt)
-ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady)
+ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
 ##
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(sol_steady)))

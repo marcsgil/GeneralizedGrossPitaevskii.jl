@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW
+using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW, Revise
 include("polariton_funcs.jl")
 
 function dispersion(ks, param)
@@ -79,7 +79,24 @@ u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N, 100)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 800.0f0)
 solver_steady = StrangSplittingB(512, δt)
-ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady)
+ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
+##
+
+y = CUDA.randn(ComplexF32, 2, 1024, 10^5)
+x = similar(y)
+
+plan = plan_fft(x, 1)
+
+@benchmark mul!($y, $plan, $x)
+
+perm = (2, 3, 1)
+
+z = permutedims(y, perm)
+
+@benchmark permutedims!($z, $y, $perm)
+
+permutedims!
+
 ##
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(first.(sol_steady))))

@@ -36,9 +36,18 @@ sample_noise!(::Nothing) = nothing
 sample_noise!(noise) = randn!(noise)
 
 function diffusion_step!(ru, buffer, rbuffer, exp_Dδt, diffusion_func!, plan, iplan)
-    mul!(rbuffer, plan, ru)
+    #= mul!(rbuffer, plan, ru)
     diffusion_func!(buffer, exp_Dδt, nothing, nothing, zero(eltype(rbuffer)), nothing, nothing, nothing; ndrange=size(buffer))
-    mul!(ru, iplan, rbuffer)
+    mul!(ru, iplan, rbuffer) =#
+
+    @show typeof(ru)
+    @show typeof(rbuffer)
+    
+    #= @info "FFT"
+    display(@benchmark mul!($rbuffer, $plan, $ru))
+
+    @info "dispersion"
+    display(@benchmark $diffusion_func!($buffer, $exp_Dδt, nothing, nothing, zero(eltype($rbuffer)), nothing, nothing, nothing; ndrange=size($buffer))) =#
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
@@ -47,33 +56,43 @@ function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, pro
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ, rξ,
+function step!(u, fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, ξ, rξ,
+function step!(u, fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
+    #= nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
     nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
-    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
+    diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan) =#
+
+    #= @info "Diffusion"
+    display(@benchmark diffusion_step!($ru, $fft_buffer, $fft_rbuffer, $exp_Dδt, $muladd_func!, $plan, $iplan))
+
+    @info "Nonlinearity"
+    ndrange=size(u)
+    display(@benchmark $nonlinear_func!($u, $(prob.nonlinearity),  $(prob.param),  $δt; ndrange=$ndrange))
+
+    @info "Potential Pump"
+    display(@benchmark potential_pump_step!($u, $buffer_next, $buffer_now, $exp_Vδt, $ξ, $rξ, $prob, $δt,  $δt, $muladd_func!)) =#
 end
 
-function step!(u,  fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
+function step!(u, fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
 end
 
@@ -138,7 +157,7 @@ function solve(prob, solver::StrangSplitting, tspan;
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
-    )
+)
     FFTW.set_num_threads(fftw_num_threads)
 
     ts, steps_per_save, δt̅ = resolve_fixed_timestepping(solver, tspan)
@@ -146,7 +165,7 @@ function solve(prob, solver::StrangSplitting, tspan;
     result, u, args... = get_precomputations(prob, solver, tspan, δt̅, workgroup_size, save_start)
     _result = @view result[ntuple(n -> :, ndims(result) - 1)..., begin+save_start:end]
 
-    t = tspan[1]
+    #= t = tspan[1]
     progress = Progress(steps_per_save * solver.nsaves)
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
         for m ∈ 1:steps_per_save
@@ -160,7 +179,11 @@ function solve(prob, solver::StrangSplitting, tspan;
         fftshift!(slice, u)
         ts[n+1] = t
     end
-    finish!(progress)
+    finish!(progress) =#
+
+    (n, slice) = first(enumerate(eachslice(_result, dims=ndims(_result))))
+    rslice = reinterpret(reshape, eltype(eltype(u)), slice)
+    step!(u, slice, rslice, args..., δt̅, δt̅)
 
     ts[begin+1-save_start:end], result
 end
