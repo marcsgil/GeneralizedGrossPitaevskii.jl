@@ -28,10 +28,12 @@ m = ħ^2 / (2 * 2.0f-1)
 A = 2f0
 w = 100f0
 
-param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w)
-
 g = 1f-2 / ħ
-nonlinearity = @SVector [0, g]
+
+param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w, g)
+
+
+nonlinearity(ψ, param) = SVector(0, param.g * abs2(ψ[2]))
 
 L = 256f0
 N = 256
@@ -40,7 +42,7 @@ u0 = CUDA.fill(SVector(0f0, 0f0), N, N)
 
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
-solver = StrangSplittingB(256, 1f-1)
+solver = StrangSplittingA(256, 1f-1)
 tspan = (0f0, 800f0)
 
 ts, sol = solve(prob, solver, tspan)

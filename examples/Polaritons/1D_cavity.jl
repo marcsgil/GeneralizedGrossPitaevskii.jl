@@ -67,10 +67,10 @@ t_freeze = 288.0f0
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0_empty = CUDA.zeros(ComplexF32, N, 100)
+u0_empty = CUDA.zeros(ComplexF32, N, 5*10^3)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 800.0f0)
-solver_steady = StrangSplittingB(512, δt)
+solver_steady = StrangSplittingC(1, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
 ##
 steady_state = sol_steady[:, end]

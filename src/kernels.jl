@@ -11,17 +11,7 @@
     dest[K...] = _add(dest[K...], noise)
 end
 
-@kernel nonlinear_kernel!(dest, ::Nothing) = nothing
-
-#= @kernel function nonlinear_kernel!(ψ, G_δt::AbstractVector)
-    K = @index(Global)
-    ψ[K] *= cis(-mapreduce((g, field) -> g * abs2(field), +, G_δt, ψ[K]))
-end
-
-@kernel function nonlinear_kernel!(ψ, G_δt)
-    K = @index(Global)
-    ψ[K] *= cis(-dot(ψ[K], G_δt, ψ[K]))
-end =#
+@kernel nonlinear_kernel!(dest, ::Nothing, param, δt) = nothing
 
 @kernel function nonlinear_kernel!(dest, nonlinearity, param, δt)
     K = @index(Global)
