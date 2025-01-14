@@ -42,7 +42,7 @@ end
 # Space parameters
 L = 400.0f0
 lengths = (L,)
-N = 1024
+N = 512
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -75,12 +75,12 @@ t_freeze = 288.0f0
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N, 5* 10^3)
+u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
-tspan_steady = (0, 800.0f0)
-solver_steady = StrangSplittingC(1, δt)
+tspan_steady = (0, 500.0f0)
+solver_steady = StrangSplittingC(512, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
-##
+
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(first.(sol_steady))))
 ##
@@ -168,11 +168,10 @@ end
 
 function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
     u0_steady = stack(steady_state for _ ∈ 1:batchsize)
-    #u0_steady = CUDA.randn(eltype(steady_state), length(steady_state), batchsize) ./ 2param.δL .+ steady_state
     noise_prototype = similar(u0_steady, real(eltype(u0_steady)))
 
-    prob = GrossPitaevskiiProblem(u0_steady, lengths; param, kwargs...)
-    solver = StrangSplittingB(1, δt)
+    prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
+    solver = StrangSplittingC(1, δt)
 
     one_point = similar(steady_state, real(eltype(eltype(steady_state))))
     two_point = similar(steady_state, real(eltype(eltype(steady_state))), size(steady_state, 1), size(steady_state, 1))
@@ -182,7 +181,7 @@ function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan
 
     for batch ∈ 1:nbatches
         @info "Batch $batch"
-        ts, _sol = solve(prob, solver, tspan; save_start=false)
+        ts, _sol = solve(prob, solver, tspan; save_start=false, show_progress=false)
         sol = dropdims(_sol, dims=3)
 
         one_point_corr!(one_point, sol)
@@ -197,9 +196,9 @@ end
 
 tspan_noise = (0.0f0, 50.0f0) .+ tspan_steady[end]
 
-G2 = calculate_correlation(steady_state, lengths, 10^4, 1, tspan_noise, δt;
+G2 = calculate_correlation(steady_state, lengths, 10^5, 1, tspan_noise, δt;
     dispersion, potential, nonlinearity, pump, param, noise_func)
-##
+
 J = N÷2-260:N÷2+260
 
 with_theme(theme_latexfonts()) do
@@ -207,6 +206,6 @@ with_theme(theme_latexfonts()) do
     ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel=L"x", ylabel=L"x\prime")
     hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e5, colorrange=(-5, 5), colormap=:inferno)
     Colorbar(fig[1, 2], hm, label=L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
-    #save("dev_env/g2m1.pdf", fig)
+    save("dev_env/g2m1_posp.pdf", fig)
     fig
 end

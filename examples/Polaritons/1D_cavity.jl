@@ -34,7 +34,7 @@ nonlinearity(ψ, param) = param.g * abs2(ψ)
 # Space parameters
 L = 400.0f0
 lengths = (L,)
-N = 1024
+N = 512
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -67,12 +67,12 @@ t_freeze = 288.0f0
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0_empty = CUDA.zeros(ComplexF32, N, 5*10^3)
+u0_empty = CUDA.zeros(ComplexF32, N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
-tspan_steady = (0, 800.0f0)
-solver_steady = StrangSplittingC(1, δt)
+tspan_steady = (0, 500.0f0)
+solver_steady = StrangSplittingC(512, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
-##
+
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(sol_steady)))
 ##
@@ -164,7 +164,7 @@ function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan
     noise_prototype = similar(u0_steady)
 
     prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
-    solver = StrangSplittingB(1, δt)
+    solver = StrangSplittingC(1, δt)
 
     one_point = similar(steady_state, real(eltype(steady_state)))
     two_point = similar(steady_state, real(eltype(steady_state)), size(steady_state, 1), size(steady_state, 1))

@@ -39,20 +39,19 @@ function perform_ft!(buffer1, buffer2, src, plan, perm, iperm)
     permutedims!(buffer1, src, perm)
     mul!(buffer2, plan, buffer1)
     permutedims!(src, buffer2, iperm)
+    src, buffer1
 end
 
-# perform_ft!(::Nothing, dest, plan, src, perm, iperm) = mul!(dest, plan, src)
+function perform_ft!(buffer1, ::Nothing, src, plan, perm, iperm)
+    mul!(buffer1, plan, src)
+    buffer1, src
+end
 
 function dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, dispersion_func!, plan, iplan, perm, iperm)
-    perform_ft!(ft_buffer1, ft_buffer2, ru, plan, perm, iperm)
-    dispersion_func!(u, exp_Dδt, nothing, nothing, zero(eltype(ru)), nothing, nothing, nothing; ndrange=size(u))
-    perform_ft!(ft_buffer1, ft_buffer2, ru, iplan, perm, iperm)
-
-    #= @info "FFT"
-    display(@benchmark mul!($rbuffer, $plan, $ru))
-
-    @info "dispersion"
-    display(@benchmark $dispersion_func!($buffer, $exp_Dδt, nothing, nothing, zero(eltype($rbuffer)), nothing, nothing, nothing; ndrange=size($buffer))) =#
+    ft_result, new_buffer = perform_ft!(ft_buffer1, ft_buffer2, ru, plan, perm, iperm)
+    ft_rresult = reinterpret(eltype(u), ft_result)
+    dispersion_func!(ft_rresult, exp_Dδt, nothing, nothing, zero(eltype(ru)), nothing, nothing, nothing; ndrange=size(u))
+    perform_ft!(new_buffer, ft_buffer2, ft_result, iplan, perm, iperm)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
@@ -61,12 +60,16 @@ function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, pro
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
+function nonlinear_step!(u, prob, δt, nonlinear_func!)
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt; ndrange=size(u))
+end
+
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, t, δt)
 
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, δt; ndrange=size(u))
+    nonlinear_step!(u, prob, δt, nonlinear_func!)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
 end
@@ -75,29 +78,19 @@ function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_n
     muladd_func!, nonlinear_func!, t, δt)
 
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
+    nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
+    nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
-
-    #= @info "Dispersion"
-    display(@benchmark dispersion_step!($ru, $fft_buffer, $fft_rbuffer, $exp_Dδt, $muladd_func!, $plan, $iplan))
-
-    @info "Nonlinearity"
-    ndrange=size(u)
-    display(@benchmark $nonlinear_func!($u, $(prob.nonlinearity),  $(prob.param),  $δt; ndrange=$ndrange))
-
-    @info "Potential Pump"
-    display(@benchmark potential_pump_step!($u, $buffer_next, $buffer_now, $exp_Vδt, $ξ, $rξ, $prob, $δt,  $δt, $muladd_func!)) =#
 end
 
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
     muladd_func!, nonlinear_func!, t, δt)
 
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
+    nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
+    nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
 end
 
@@ -139,13 +132,6 @@ function get_pump_buffers(prob, u, t₀, ::StrangSplitting)
     buffer_next, buffer_now
 end
 
-#= function get_fft_precomp(u::Array, ru, prob)
-    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(ru) - ndims(u))
-    plan = plan_fft(ru, ftdims)
-    iplan = inv(plan)
-    nothing, nothing, plan, iplan, nothing, nothing
-end =#
-
 function get_fft_precomp(u, ru, prob)
     δ_ndims = ndims(ru) - ndims(u)
     first_dims = ntuple(identity, ndims(u)) .+ δ_ndims
@@ -160,6 +146,15 @@ function get_fft_precomp(u, ru, prob)
     plan = plan_fft(ft_buffer1, ft_dims)
     iplan = inv(plan)
     ft_buffer1, ft_buffer2, plan, iplan, perm, iperm
+end
+
+function get_fft_precomp(::AbstractArray{T, N}, ru::AbstractArray{T, N}, prob) where {T, N}
+    ft_buffer = similar(ru)
+    ft_dims = ntuple(identity, length(prob.lengths))
+    plan = plan_fft(ft_buffer, ft_dims)
+    iplan = inv(plan)
+
+    ft_buffer, nothing, plan, iplan, nothing, nothing
 end
 
 reinterpret_or_nothing(::Nothing) = nothing
@@ -217,10 +212,6 @@ function solve(prob, solver::StrangSplitting, tspan;
         ts[n+1] = t
     end
     finish!(progress)
-
-    #= (n, slice) = first(enumerate(eachslice(_result, dims=ndims(_result))))
-    rslice = reinterpret(reshape, eltype(eltype(u)), slice)
-    step!(u, slice, rslice, args..., δt̅, δt̅) =#
 
     ts[begin+1-save_start:end], result
 end
