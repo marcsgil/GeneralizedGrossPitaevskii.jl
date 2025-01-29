@@ -11,14 +11,12 @@ function potential(rs, param)
 end
 
 
-function A(t, Amax, t_cycle, t_freeze)
-    _t = ifelse(t > t_freeze, t_freeze, t)
-    val = Amax * _t * (t_cycle - _t) * 4 / t_cycle^2
-    val < 0 ? zero(val) : val
+function A(t, Amax, t_cycle)
+    Amax * t * (t_cycle - t) * 4 / t_cycle^2
 end
 
 function pump(x, param, t)
-    a = A(t, param.Amax, param.t_cycle, param.t_freeze)
+    a = A(t, param.Amax, param.t_cycle)
     if x[1] ≤ -param.L * 0.9 / 2 || x[1] ≥ -10
         a *= 0
     elseif -param.L * 0.9 / 2 < x[1] ≤ -param.L * 0.85 / 2
@@ -59,19 +57,19 @@ k_pump = 0.25f0
 Imax = 90.0f0
 Amax = √Imax
 t_cycle = 300.0f0
-t_freeze = 288.0f0
+t_const = 288.0f0
 
 δt = 2.0f-2
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze, δL, k_pump)
+    Amax, t_cycle, δL, k_pump)
 
 u0_empty = CUDA.zeros(ComplexF32, N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 500.0f0)
 solver_steady = StrangSplittingC(512, δt)
-ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
+ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady; t_const);
 
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(sol_steady)))

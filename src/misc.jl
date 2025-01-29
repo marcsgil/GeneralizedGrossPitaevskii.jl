@@ -57,7 +57,9 @@ function evaluate_pump!(prob, dest, t)
     grid_map!(dest, prob.pump, rs, prob.param, t)
 end
 
-function evaluate_pump!(prob, dest_next, dest_now, t)
-    copy!(dest_now, dest_next)
-    evaluate_pump!(prob, dest_next, t)
+function evaluate_pump!(prob, dest_next, dest_now, t, t_const)
+    if t ≤ t_const
+        copy!(dest_now, dest_next)
+        evaluate_pump!(prob, dest_next, t)
+    end
 end

@@ -54,9 +54,9 @@ function dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, dispersion_fu
     perform_ft!(new_buffer, ft_buffer2, ft_result, iplan, perm, iperm)
 end
 
-function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
+function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, t_const, muladd_func!)
     sample_noise!(rξ)
-    evaluate_pump!(prob, buffer_next, buffer_now, t)
+    evaluate_pump!(prob, buffer_next, buffer_now, t, t_const)
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(u))
 end
 
@@ -65,33 +65,33 @@ function nonlinear_step!(u, prob, δt, nonlinear_func!)
 end
 
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ, rξ,
-    muladd_func!, nonlinear_func!, t, δt)
+    muladd_func!, nonlinear_func!, t, δt, t_const)
 
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, t_const, muladd_func!)
     nonlinear_step!(u, prob, δt, nonlinear_func!)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, t_const, muladd_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
 end
 
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, ξ, rξ,
-    muladd_func!, nonlinear_func!, t, δt)
+    muladd_func!, nonlinear_func!, t, δt, t_const)
 
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
     nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, t_const, muladd_func!)
     nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
 end
 
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
-    muladd_func!, nonlinear_func!, t, δt)
+    muladd_func!, nonlinear_func!, t, δt, t_const)
 
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt / 2, δt / 2, t_const, muladd_func!)
     nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
     nonlinear_step!(u, prob, δt / 2, nonlinear_func!)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt / 2, t_const, muladd_func!)
 end
 
 """
@@ -190,6 +190,7 @@ function solve(prob, solver::StrangSplitting, tspan;
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
+    t_const = Inf,
 )
     FFTW.set_num_threads(fftw_num_threads)
 
@@ -203,7 +204,7 @@ function solve(prob, solver::StrangSplitting, tspan;
     for (n, slice) ∈ enumerate(eachslice(_result, dims=ndims(_result)))
         for m ∈ 1:steps_per_save
             t += δt̅
-            step!(u, args..., t, δt̅)
+            step!(u, args..., t, δt̅, t_const)
             if show_progress
                 next!(progress)
             end
