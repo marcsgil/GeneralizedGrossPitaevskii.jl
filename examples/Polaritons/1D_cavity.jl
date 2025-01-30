@@ -10,7 +10,6 @@ function potential(rs, param)
     param.V_damp * damping_potential(rs, -param.L / 2, param.L / 2, param.w_damp)
 end
 
-
 function A(t, Amax, t_cycle, t_freeze)
     _t = ifelse(t > t_freeze, t_freeze, t)
     val = Amax * _t * (t_cycle - _t) * 4 / t_cycle^2
@@ -32,7 +31,7 @@ noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 nonlinearity(ψ, param) = param.g * abs2(ψ)
 
 # Space parameters
-L = 400.0f0
+L = 800.0f0
 lengths = (L,)
 N = 1024
 δL = L / N
@@ -70,9 +69,9 @@ param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
 u0_empty = CUDA.zeros(ComplexF32, N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 800.0f0)
-solver_steady = StrangSplittingC(1, δt)
+solver_steady = StrangSplittingC(512, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
-##
+
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(sol_steady)))
 ##
@@ -175,9 +174,10 @@ function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan
         @info "Batch $batch"
         ts, _sol = solve(prob, solver, tspan; save_start=false)
         sol = dropdims(_sol, dims=3)
+        ft_sol = fftshift(fft(ifftshift(sol, 1), 1), 1)
 
-        one_point_corr!(one_point, sol)
-        two_point_corr!(two_point, sol)
+        one_point_corr!(one_point, ft_sol)
+        two_point_corr!(two_point, ft_sol)
     end
 
     one_point /= nbatches * batchsize
@@ -195,12 +195,13 @@ tspan_noise = (0.0f0, 50.0f0) .+ tspan_steady[end]
 G2 = calculate_correlation(steady_state, lengths, 10^5, 1, tspan_noise, δt;
     dispersion, potential, nonlinearity, pump, param, noise_func)
 ##
-J = N÷2-260:N÷2+260
+#J = N÷2-130:N÷2+130
+J = N÷2-160:N÷2+160
 
 with_theme(theme_latexfonts()) do
     fig = Figure(; size=(730, 600), fontsize=20)
     ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel=L"x", ylabel=L"x\prime")
-    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e5, colorrange=(-5, 5), colormap=:inferno)
+    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 2e3, colorrange=(-5, 5), colormap=:inferno)
     Colorbar(fig[1, 2], hm, label=L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
     #save("dev_env/g2m1.pdf", fig)
     fig

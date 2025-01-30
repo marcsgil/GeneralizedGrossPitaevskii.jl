@@ -1,4 +1,4 @@
-using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW, Revise
+using GeneralizedGrossPitaevskii, CairoMakie, LinearAlgebra, CUDA, Statistics, ProgressMeter, KernelAbstractions, FFTW, Revise, HDF5
 include("polariton_funcs.jl")
 
 function dispersion(ks, param)
@@ -30,7 +30,7 @@ function pump(x, param, t)
 end
 
 function noise_func(ψ, param)
-    val = √(im * param.g)
+    val = √(im * param.g / param.δL)
     SVector(val * ψ[1], conj(val) * ψ[2])
 end
 
@@ -40,9 +40,9 @@ function nonlinearity(ψ, param)
 end
 
 # Space parameters
-L = 400.0f0
+L = 300.0f0
 lengths = (L,)
-N = 1024
+N = 512
 δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
@@ -54,7 +54,7 @@ g = 0.0003f0 / ħ
 δ₀ = 0.49 / ħ
 
 # Potential parameters
-V_damp = 100.0f0
+V_damp = 10.0f0
 w_damp = 5.0f0
 V_def = -0.85f0 / ħ
 w_def = 0.75f0
@@ -69,7 +69,7 @@ Amax = √Imax
 t_cycle = 300.0f0
 t_freeze = 288.0f0
 
-δt = 2.0f-2
+δt = 6.0f-2
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
@@ -77,10 +77,10 @@ param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
 
 u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
-tspan_steady = (0, 800.0f0)
-solver_steady = StrangSplittingC(1, δt)
+tspan_steady = (0, 2000.0f0)
+solver_steady = StrangSplittingC(512, δt)
 ts_steady, sol_steady = solve(prob_steady, solver_steady, tspan_steady);
-##
+
 steady_state = sol_steady[:, end]
 heatmap(rs, ts_steady, Array(abs2.(first.(sol_steady))))
 ##
@@ -134,78 +134,32 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-function one_point_corr!(dest, sol)
-    backend = get_backend(dest)
-
-    @kernel function kernel!(dest, sol)
-        j = @index(Global)
-        x = 0f0
-        for k ∈ axes(sol, 2)
-            x += real(prod(sol[j, k]))
-        end
-        dest[j] += x
-    end
-
-    kernel!(backend, 64)(dest, sol, ndrange=length(dest))
-    KernelAbstractions.synchronize(backend)
-end
-
-function two_point_corr!(dest, sol)
-    backend = get_backend(dest)
-
-    @kernel function kernel!(dest, sol)
-        j, k = @index(Global, NTuple)
-        x = 0f0
-        for m ∈ axes(sol, 2)
-            x += real(prod(sol[j, m]) * prod(sol[k, m]))
-        end
-        dest[j, k] += x
-    end
-
-    kernel!(backend, 64)(dest, sol, ndrange=size(dest))
-    KernelAbstractions.synchronize(backend)
-end
-
-function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
+function batch_solve(steady_state, lengths, batchsize, nbatches, tspan, δt, path; param, kwargs...)
     u0_steady = stack(steady_state for _ ∈ 1:batchsize)
     noise_prototype = similar(u0_steady, real(eltype(u0_steady)))
 
     prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
     solver = StrangSplittingB(1, δt)
 
-    one_point = similar(steady_state, real(eltype(eltype(steady_state))))
-    two_point = similar(steady_state, real(eltype(eltype(steady_state))), size(steady_state, 1), size(steady_state, 1))
-
-    fill!(one_point, 0f0)
-    fill!(two_point, 0f0)
-
-    for batch ∈ 1:nbatches
-        @info "Batch $batch"
-        ts, _sol = solve(prob, solver, tspan; save_start=false)
-        sol = dropdims(_sol, dims=3)
-
-        one_point_corr!(one_point, sol)
-        two_point_corr!(two_point, sol)
+    h5open(path, "cw") do file
+        @showprogress for batch ∈ 1:nbatches.+ length(file)
+            sol = solve(prob, solver, tspan; save_start=false, show_progress=false)[2]
+            file["batch_$batch"] = Array(dropdims(sol, dims=3))
+            HDF5.attributes(file["batch_$batch"])["lengths"] = [x for x in lengths]
+        end
     end
-
-    one_point /= nbatches * batchsize
-    two_point /= nbatches * batchsize
-
-    two_point ./ (one_point .* one_point')
 end
 
 tspan_noise = (0.0f0, 50.0f0) .+ tspan_steady[end]
+path = "/home/stagios/Marcos/LEON_Marcos/Users/Marcos/hawking_posp.h5"
 
-G2 = calculate_correlation(steady_state, lengths, 10^4, 1, tspan_noise, δt;
+batch_solve(steady_state, lengths, 10^5, 10, tspan_noise, δt, path;
     dispersion, potential, nonlinearity, pump, param, noise_func)
 ##
-J = N÷2-260:N÷2+260
 
-with_theme(theme_latexfonts()) do
-    fig = Figure(; size=(730, 600), fontsize=20)
-    ax = Axis(fig[1, 1], aspect=DataAspect(), xlabel=L"x", ylabel=L"x\prime")
-    hm = heatmap!(ax, rs[J], rs[J], (Array(real(G2)[J, J]) .- 1) * 1e5, colorrange=(-5, 5), colormap=:inferno)
-    Colorbar(fig[1, 2], hm, label=L"g_2(x, x\prime) -1 \ \ ( \times 10^{-4})")
-    #save("dev_env/g2m1.pdf", fig)
-    fig
-end
+file = h5open(path)
+sol = read(first(file))
+
+reinterpret(reshape, ComplexF32, sol)
+
+[1]
