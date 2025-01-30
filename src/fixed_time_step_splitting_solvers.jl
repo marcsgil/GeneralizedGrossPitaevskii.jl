@@ -41,18 +41,10 @@ function perform_ft!(buffer1, buffer2, src, plan, perm, iperm)
     permutedims!(src, buffer2, iperm)
 end
 
-# perform_ft!(::Nothing, dest, plan, src, perm, iperm) = mul!(dest, plan, src)
-
 function dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, dispersion_func!, plan, iplan, perm, iperm)
     perform_ft!(ft_buffer1, ft_buffer2, ru, plan, perm, iperm)
     dispersion_func!(u, exp_Dδt, nothing, nothing, zero(eltype(ru)), nothing, nothing, nothing; ndrange=size(u))
     perform_ft!(ft_buffer1, ft_buffer2, ru, iplan, perm, iperm)
-
-    #= @info "FFT"
-    display(@benchmark mul!($rbuffer, $plan, $ru))
-
-    @info "dispersion"
-    display(@benchmark $dispersion_func!($buffer, $exp_Dδt, nothing, nothing, zero(eltype($rbuffer)), nothing, nothing, nothing; ndrange=size($buffer))) =#
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
@@ -79,16 +71,6 @@ function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_n
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
     dispersion_step!(u, ru, ft_buffer1, ft_buffer2, exp_Dδt, muladd_func!, plan, iplan, perm, iperm)
-
-    #= @info "Dispersion"
-    display(@benchmark dispersion_step!($ru, $fft_buffer, $fft_rbuffer, $exp_Dδt, $muladd_func!, $plan, $iplan))
-
-    @info "Nonlinearity"
-    ndrange=size(u)
-    display(@benchmark $nonlinear_func!($u, $(prob.nonlinearity),  $(prob.param),  $δt; ndrange=$ndrange))
-
-    @info "Potential Pump"
-    display(@benchmark potential_pump_step!($u, $buffer_next, $buffer_now, $exp_Vδt, $ξ, $rξ, $prob, $δt,  $δt, $muladd_func!)) =#
 end
 
 function step!(u, ft_buffer1, ft_buffer2, plan, iplan, perm, iperm, ru, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ, rξ,
@@ -138,13 +120,6 @@ function get_pump_buffers(prob, u, t₀, ::StrangSplitting)
     evaluate_pump!(prob, buffer_next, t₀)
     buffer_next, buffer_now
 end
-
-#= function get_fft_precomp(u::Array, ru, prob)
-    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(ru) - ndims(u))
-    plan = plan_fft(ru, ftdims)
-    iplan = inv(plan)
-    nothing, nothing, plan, iplan, nothing, nothing
-end =#
 
 function get_fft_precomp(u, ru, prob)
     δ_ndims = ndims(ru) - ndims(u)
@@ -217,10 +192,6 @@ function solve(prob, solver::StrangSplitting, tspan;
         ts[n+1] = t
     end
     finish!(progress)
-
-    #= (n, slice) = first(enumerate(eachslice(_result, dims=ndims(_result))))
-    rslice = reinterpret(reshape, eltype(eltype(u)), slice)
-    step!(u, slice, rslice, args..., δt̅, δt̅) =#
 
     ts[begin+1-save_start:end], result
 end

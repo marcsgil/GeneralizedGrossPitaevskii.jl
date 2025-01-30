@@ -75,7 +75,7 @@ t_freeze = 288.0f0
 param = (; δ₀, m, γ, ħ, L, g, V_damp, w_damp, V_def, w_def,
     Amax, t_cycle, t_freeze, δL, k_pump)
 
-u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N, 5* 10^3)
+u0_empty = CUDA.fill(SVector{2,ComplexF32}(0, 0), N)
 prob_steady = GrossPitaevskiiProblem(u0_empty, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan_steady = (0, 800.0f0)
 solver_steady = StrangSplittingC(1, δt)
@@ -168,10 +168,9 @@ end
 
 function calculate_correlation(steady_state, lengths, batchsize, nbatches, tspan, δt; param, kwargs...)
     u0_steady = stack(steady_state for _ ∈ 1:batchsize)
-    #u0_steady = CUDA.randn(eltype(steady_state), length(steady_state), batchsize) ./ 2param.δL .+ steady_state
     noise_prototype = similar(u0_steady, real(eltype(u0_steady)))
 
-    prob = GrossPitaevskiiProblem(u0_steady, lengths; param, kwargs...)
+    prob = GrossPitaevskiiProblem(u0_steady, lengths; noise_prototype, param, kwargs...)
     solver = StrangSplittingB(1, δt)
 
     one_point = similar(steady_state, real(eltype(eltype(steady_state))))
