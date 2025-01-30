@@ -18,6 +18,8 @@ function pump(x, param, t)
     (x[1] ≤ -7) * A(t, param.Amax, param.t_cycle, param.t_freeze) * (1 + 3 * (x[1] ≤ (-param.L / 2 + 10))) * cis(x[1] * param.k_pump)
 end
 
+nonlinearity(ψ, param) = param.g * abs2(ψ)
+
 # Space parameters
 L = 1800.0f0
 lengths = (L,)
@@ -51,10 +53,10 @@ t_freeze = 95.0f0
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze, k_pump)
+    Amax, t_cycle, t_freeze, k_pump, g)
 
 u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity=g, pump, param)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity, pump, param)
 tspan = (0, 1000.0f0)
 solver = StrangSplittingB(4096, 4.0f-1)
 ts, sol = solve(prob, solver, tspan)
