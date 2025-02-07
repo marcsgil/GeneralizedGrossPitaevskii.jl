@@ -1,4 +1,5 @@
-using GeneralizedGrossPitaevskii, CairoMakie, FFTW
+using GeneralizedGrossPitaevskii, CairoMakie, FFTW, Statistics
+include("polariton_funcs.jl")
 
 function dispersion(ks, param)
     -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2 / param.m - param.δ₀
@@ -19,11 +20,13 @@ function pump(x, param, t)
 end
 
 nonlinearity(ψ, param) = param.g * abs2(ψ)
+noise_func(ψ, param) = √(param.γ / 2 / param.δL)
 
 # Space parameters
-L = 1800.0f0
+L = 3600.0f0
 lengths = (L,)
-N = 1024
+N = 2048
+δL = L / N
 rs = range(; start=-L / 2, step=L / N, length=N)
 
 # Polariton parameters
@@ -53,18 +56,20 @@ t_freeze = 95.0f0
 
 # Full parameter tuple
 param = (; δ₀, m, γ, ħ, L, V_damp, w_damp, V_def, w_def,
-    Amax, t_cycle, t_freeze, k_pump, g)
+    Amax, t_cycle, t_freeze, k_pump, g, δL)
 
 u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity, pump, param)
+noise_prototype = similar(u0)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion, potential, nonlinearity, pump, param, noise_func)
 tspan = (0, 1000.0f0)
-solver = StrangSplittingB(4096, 4.0f-1)
+δt =  1.0f-1
+solver = StrangSplittingB(2048, δt)
 ts, sol = solve(prob, solver, tspan)
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel="x", ylabel="t")
-    heatmap!(ax, rs, ts, Array(abs2.(sol)))
+    heatmap!(ax, rs, ts, Array(angle.(sol)))
     fig
 end
 ##
@@ -87,19 +92,12 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-function dispersion_relation(k, kₚ, g, n₀, δ, m, branch::Bool)
-    v = ħ * kₚ / m
-    pm = branch ? 1 : -1
-    gn₀ = g * n₀
-    v * k +pm * √(ħ^2 * k^4 / 4m^2 + (ħ * (2 * g * n₀ - δ) / m) * k^2 + (gn₀ - δ) * (3gn₀ - δ))
-end
-
-
 u0_steady = sol[:, end]
 
-J = 100:220
+offset = 100
+J = N ÷ 4 - offset:N ÷ 4 + offset
 
-δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
+δψ = (sol[J, 1800:end] ./ u0_steady[J]) .-1
 heatmap(abs2.(δψ))
 ##
 Δt = ts[2] - ts[1]
@@ -113,26 +111,28 @@ ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
 
 
 log_δψ̃ = δψ |> fftshift |> fft |> ifftshift .|> abs .|> log
-reverse!(log_δψ̃, dims=2)
 J = argmax(log_δψ̃)
-log_δψ̃[J[1], :] .= min(log_δψ̃...)
-log_δψ̃[:, J[2]] .= min(log_δψ̃...)
+mi = minimum(log_δψ̃)
+log_δψ̃[J[1], :] .= mi
+log_δψ̃[:, J[2]] .= mi
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
     ω₊ = dispersion_relation.(ks, k_pump, g, ns[end], δ, m, true)
     ω₋ = dispersion_relation.(ks, k_pump, g, ns[end], δ, m, false)
-    heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
-    lines!(ax, ks, ω₊, color=:grey, linestyle=:dot, linewidth=4)
-    lines!(ax, ks, ω₋, color=:grey, linestyle=:dot, linewidth=4)
+    heatmap!(ax, ks, -ωs, log_δψ̃, colormap=:magma)
+    lines!(ax, ks, ω₊, color=:grey, linestyle=:dash, linewidth=2)
+    lines!(ax, ks, ω₋, color=:grey, linestyle=:dash, linewidth=2)
+    ylims!(ax, extrema(ωs))
     fig
 end
 ##
-J = 700:820
-δψ = (sol[J, 1800:end] .- u0_steady[J]) .* cis.(-k_pump .* rs[J])
+offset = 300
+J = 3N ÷ 4 - offset:3N ÷ 4 + offset
+δψ = (sol[J, 1800:end] ./ u0_steady[J]) .- 1
 heatmap(abs2.(δψ))
-
+##
 
 Δt = ts[2] - ts[1]
 Δx = rs[2] - rs[1]
@@ -145,18 +145,19 @@ ks = range(; start=-π / Δx, step=2π / (Nx * Δx), length=Nx)
 
 
 log_δψ̃ = δψ |> ifftshift |> fft |> fftshift .|> abs .|> log
-reverse!(log_δψ̃, dims=2)
 J = argmax(log_δψ̃)
-log_δψ̃[J[1], :] .= min(log_δψ̃...)
-log_δψ̃[:, J[2]] .= min(log_δψ̃...)
+mi = minimum(log_δψ̃)
+log_δψ̃[J[1], :] .= mi
+log_δψ̃[:, J[2]:end] .= mi
 
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=20)
     ax = Axis(fig[1, 1]; xlabel=L"k", ylabel=L"\omega")
-    ω₊ = dispersion_relation.(ks, k_pump, g, 0, δ, m, true)
-    ω₋ = dispersion_relation.(ks, k_pump, g, 0, δ, m, false)
-    heatmap!(ax, ks, ωs, log_δψ̃, colormap=:magma)
-    lines!(ax, ks, ω₊, color=:red, linestyle=:dot, linewidth=4)
-    lines!(ax, ks, ω₋, color=:blue, linestyle=:dot, linewidth=4)
+    ω₊ = dispersion_relation.(ks, 0, g, 0, 0, m, true)
+    ω₋ = dispersion_relation.(ks, 0, g, 0, 0, m, false)
+    heatmap!(ax, ks, -ωs, log_δψ̃, colormap=:magma)
+    lines!(ax, ks .- k_pump, ω₊ .- δ₀, color=:red, linestyle=:dot, linewidth=4)
+    lines!(ax, ks .- k_pump, ω₋ .- δ₀, color=:blue, linestyle=:dot, linewidth=4)
+    ylims!(ax, extrema(ωs))
     fig
 end

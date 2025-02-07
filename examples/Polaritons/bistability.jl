@@ -37,6 +37,8 @@ function pump(x, param, t)
     exp(-sum(abs2, x) / param.width^2) * √I(t, param.tmax, param.Imax)
 end
 
+nonlinearity(ψ, param) = param.g * abs2(ψ)
+
 L = 256.0f0
 lengths = (L,)
 N = 256
@@ -50,9 +52,9 @@ solver = StrangSplittingB(512, 0.1f0)
 
 tspan = (0, 4000.0f0)
 tmax = tspan[end]
-param = (; tmax, Imax, width, δ, ω₀, kz, γ)
+param = (; tmax, Imax, width, δ, ω₀, kz, γ, g)
 
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity=g, pump, param)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
 ts, sol = solve(prob, solver, tspan)
 heatmap(xs, ts, abs2.(sol))
