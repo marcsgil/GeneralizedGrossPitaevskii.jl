@@ -11,7 +11,7 @@
     dest[K...] = _add(dest[K...], noise)
 end
 
-@kernel nonlinear_kernel!(dest, ::Nothing) = nothing
+@kernel nonlinear_kernel!(dest, ::Nothing, param, δt) = nothing
 
 #= @kernel function nonlinear_kernel!(ψ, G_δt::AbstractVector)
     K = @index(Global)

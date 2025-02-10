@@ -1,4 +1,4 @@
 [deps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 GeneralizedGrossPitaevskii = "1c32f1f8-fc12-41ee-a188-d96e58f04b51"
+StructuredLight = "13204c95-a6e5-4c09-8c7b-ee09b09e0944"

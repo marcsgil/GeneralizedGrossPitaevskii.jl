@@ -1,6 +1,4 @@
-using Revise, BenchmarkTools, CUDA
-using GeneralizedGrossPitaevskii
-using CairoMakie, StructuredLight
+using GeneralizedGrossPitaevskii, CairoMakie
 
 function dispersion(k, param)
     Dcc = param.ħ * sum(abs2, k) / 2param.m - param.δc - im * param.γc
@@ -8,6 +6,8 @@ function dispersion(k, param)
     Dxc = param.Ωr
     @SMatrix [Dcc Dxc; Dxc Dxx]
 end
+
+nonlinearity(ψ, param) = @SVector [0, param.g * abs2(ψ[2])]
 
 function pump(r, param, t)
     SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0f0)
@@ -28,20 +28,19 @@ m = ħ^2 / (2 * 2.0f-1)
 A = 2f0
 w = 100f0
 
-param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w)
-
 g = 1f-2 / ħ
-nonlinearity = @SVector [0, g]
+
+param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w, g)
 
 L = 256f0
-N = 256
+N = 128
 lengths = (L, L)
-u0 = CUDA.fill(SVector(0f0, 0f0), N, N)
+u0 = fill(SVector(0f0, 0f0), N, N)
 
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
 solver = StrangSplittingB(256, 1f-1)
-tspan = (0f0, 800f0)
+tspan = (0f0, 100f0)
 
 ts, sol = solve(prob, solver, tspan)
 ##

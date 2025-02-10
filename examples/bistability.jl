@@ -1,6 +1,4 @@
-using Revise, BenchmarkTools, CUDA
-using GeneralizedGrossPitaevskii
-using CairoMakie
+using GeneralizedGrossPitaevskii, CairoMakie
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
@@ -11,7 +9,6 @@ ns_theo = LinRange(0, 41, 512)
 ω₀ = 1483.0f0
 g = 0.01f0
 δ = 0.3f0
-ωₚ = ω₀ + δ
 kz = 27.0f0
 γ = 0.1f0
 
@@ -68,6 +65,5 @@ with_theme(theme_latexfonts()) do
     lines!(Is, dropdims(maximum(abs2, sol, dims=1), dims=1); label="Simulation", color=:red, linewidth=5)
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
     axislegend(ax, position=:rb)
-    #save("bistability.png", fig)
     fig
 end
