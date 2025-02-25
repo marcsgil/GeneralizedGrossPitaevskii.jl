@@ -35,10 +35,12 @@ end
 sample_noise!(::Nothing) = nothing
 sample_noise!(noise) = randn!(noise)
 
+perform_ft!(dest, plan, src) = mul!(dest, plan, src)
+
 function diffusion_step!(ru, buffer, rbuffer, exp_Dδt, diffusion_func!, plan, iplan)
-    mul!(rbuffer, plan, ru)
+    perform_ft!(rbuffer, plan, ru)
     diffusion_func!(buffer, exp_Dδt, nothing, nothing, zero(eltype(rbuffer)), nothing, nothing, nothing; ndrange=size(buffer))
-    mul!(ru, iplan, rbuffer)
+    perform_ft!(ru, iplan, rbuffer)
 end
 
 function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t, δt, muladd_func!)
@@ -61,9 +63,9 @@ function step!(u, fft_buffer, fft_rbuffer, ru, buffer_next, buffer_now, prob, ::
     muladd_func!, nonlinear_func!, plan, iplan, t, δt)
 
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
     potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, rξ, prob, t + δt, δt, muladd_func!)
-    nonlinear_func!(u, prob.nonlinearity,  prob.param,  δt / 2; ndrange=size(u))
+    nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(u))
     diffusion_step!(ru, fft_buffer, fft_rbuffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
@@ -104,6 +106,13 @@ get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 reinterpret_or_nothing(::Nothing) = nothing
 reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
 
+function get_fft_plans(u, ru, prob)
+    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(ru) - ndims(u))
+    plan = plan_fft(ru, ftdims)
+    iplan = inv(plan)
+    plan, iplan
+end
+
 function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgroup_size, save_start)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
 
@@ -114,9 +123,7 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgrou
 
     ru = reinterpret(reshape, eltype(eltype(u)), u)
 
-    ftdims = ntuple(identity, length(prob.lengths)) .+ (ndims(ru) - ndims(u))
-    plan = plan_fft(ru, ftdims)
-    iplan = inv(plan)
+    plan, iplan = get_fft_plans(u, ru, prob)
 
     δts = get_δt_combination(solver, δt)
     exp_Dδt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, δts[1])

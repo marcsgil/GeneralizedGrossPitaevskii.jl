@@ -18,8 +18,4 @@ include("kernels.jl")
 include("fixed_time_step_splitting_solvers.jl")
 export solve, StrangSplittingA, StrangSplittingB, StrangSplittingC
 
-#TODO
-
-# parallel parameters
-
 end
