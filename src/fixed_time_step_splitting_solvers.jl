@@ -116,7 +116,7 @@ end
 function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgroup_size, save_start)
     result = stack(prob.u0 for _ ∈ 1:solver.nsaves+save_start)
 
-    u = ifftshift(prob.u0)
+    u = fftshift(prob.u0)
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
     buffer_now = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, δt)
     evaluate_pump!(prob, buffer_next, tspan[1])
@@ -164,7 +164,7 @@ function solve(prob, solver::StrangSplitting, tspan;
                 next!(progress)
             end
         end
-        fftshift!(slice, u)
+        ifftshift!(slice, u)
         ts[n+1] = t
     end
     finish!(progress)
