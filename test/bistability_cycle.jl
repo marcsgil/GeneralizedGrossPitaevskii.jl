@@ -29,7 +29,7 @@ using GeneralizedGrossPitaevskii
 
     L = 256.0f0
     lengths = (L,)
-    u0 = zeros(ComplexF32, ntuple(n -> 256, length(lengths)))
+    u0 = (zeros(ComplexF32, ntuple(n -> 256, length(lengths))), )
 
     Imax = 0.6f0
     width = 50.0f0
@@ -51,22 +51,21 @@ using GeneralizedGrossPitaevskii
 
         error = similar(Is)
 
-        for (n, slice) ∈ enumerate(eachslice(sol, dims=ndims(sol)))
+        for (n, slice) ∈ enumerate(eachslice(sol[1], dims=ndims(sol[1])))
             Is_pred = bistability_curve(maximum(abs2, slice), δ, g, γ)
             error[n] = abs(Is_pred - Is[n])
         end
 
         @test sum(error[140:400]) / length(Is) ≤ 3e-3
 
-        new_u0 = [SVector(val) for val ∈ u0]
         for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
             for pump_type ∈ (identity, SVector)
                 new_dispersion(args...) = type(dispersion(args...))
                 new_nonlinearity(args...) = type′(nonlinearity(args...))
                 new_pump(args...) = pump_type(pump(args...))
-                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
+                prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
                 ts, sol2 = solve(prob2, solver, tspan; show_progress=false)
-                @test reinterpret(reshape, ComplexF32, sol2) ≈ sol
+                @test sol2[1] ≈ sol[1]
             end
         end
     end

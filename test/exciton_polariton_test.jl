@@ -34,7 +34,7 @@
     L = 256f0
     N = 128
     lengths = (L, L)
-    u0 = fill(SVector(0f0, 0f0), N, N)
+    u0 = (zeros(ComplexF32, N, N), zeros(ComplexF32, N, N))
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
@@ -44,8 +44,8 @@
 
         ts, sol = solve(prob, solver, tspan; show_progress=false)
 
-        nx = Array(abs2.(last.(sol)))[N÷2, N÷2, end]
-        nc = Array(abs2.(first.(sol)))[N÷2, N÷2, end]
+        nx = abs2.(last(sol))[N÷2, N÷2, end]
+        nc = abs2.(first(sol))[N÷2, N÷2, end]
 
         @test abs(abs2(Ωr - (δx + im * γx / 2 - g * nx) * (δc + im * γc / 2) / Ωr) * nx / abs2(A) - 1) < 3e-2
 

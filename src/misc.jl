@@ -24,6 +24,13 @@ _cis(x::AbstractVector) = cis.(x)
 _getindex(A, K) = A[K[1:ndims(A)]...]
 _getindex(::Nothing, K) = nothing
 
+build_field_at(::Nothing, K) = nothing
+function build_field_at(ξ, K)
+    SVector(map(ξ) do x
+        _getindex(x, K)
+    end)
+end
+
 _mul(x, y) = x * y
 _mul(x::AbstractVector, y::AbstractVector) = x .* y
 _mul(::Nothing, ::Nothing) = nothing
@@ -42,13 +49,13 @@ mul_noise(noise_func, ξ, args...) = _mul(noise_func(args...), ξ)
 
 function get_pump_buffer(pump, u, lengths, param, t)
     T = pump(lengths, param, t) |> typeof
-    similar(u, T, size(u)[1:length(lengths)])
+    similar(first(u), T, size(first(u))[1:length(lengths)])
 end
 
 get_pump_buffer(::Nothing, args...) = nothing
 
-function evaluate_pump!(prob::GrossPitaevskiiProblem{M,N,T,T1,T2,T3,T4,T5,Nothing},
-    args...) where {M,N,T,T1,T2,T3,T4,T5}
+function evaluate_pump!(::GrossPitaevskiiProblem{N,M,T1,T2,T3,T4,T5,Nothing},
+    args...) where {M,N,T1,T2,T3,T4,T5}
     nothing
 end
 

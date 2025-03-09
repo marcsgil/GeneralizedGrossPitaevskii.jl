@@ -1,29 +1,29 @@
-@kernel function muladd_kernel!(dest, exp_δt, F_next, F_now, δt, noise_func, ξ, param)
+@kernel function muladd_kernel!(dest::NTuple{N}, exp_δt, F_next, F_now, δt, noise_func, ξ, param) where {N}
     K = @index(Global, NTuple)
+
+    fields = build_field_at(dest, K)
 
     exp_δt_val = _getindex(exp_δt, K)
     Fδt_next_val = _mul(δt / 2, _getindex(F_next, K))
     Fδt_now_val = _mul(δt / 2, _getindex(F_now, K))
-    ξ_val = _getindex(ξ, K)
-    noise = _mul(-im * √δt, mul_noise(noise_func, ξ_val, dest[K...], param))
+    ξ_val = build_field_at(ξ, K)
+    noise = _mul(-im * √δt, mul_noise(noise_func, ξ_val, fields, param))
 
-    dest[K...] = _add(_mul(exp_δt_val, _add(dest[K...], Fδt_now_val)), Fδt_next_val)
-    dest[K...] = _add(dest[K...], noise)
+    result = _add(_mul(exp_δt_val, _add(fields, Fδt_now_val)), Fδt_next_val)
+    result = _add(result, noise)
+
+    for (n, field) ∈ enumerate(dest)
+        field[K...] = result[n]
+    end
 end
 
-@kernel nonlinear_kernel!(dest, ::Nothing, param, δt) = nothing
+@kernel nonlinear_kernel!(::NTuple{N}, ::Nothing, param, δt) where {N} = nothing
 
-#= @kernel function nonlinear_kernel!(ψ, G_δt::AbstractVector)
+@kernel function nonlinear_kernel!(dest::NTuple{N}, nonlinearity, param, δt) where {N}
     K = @index(Global)
-    ψ[K] *= cis(-mapreduce((g, field) -> g * abs2(field), +, G_δt, ψ[K]))
-end
-
-@kernel function nonlinear_kernel!(ψ, G_δt)
-    K = @index(Global)
-    ψ[K] *= cis(-dot(ψ[K], G_δt, ψ[K]))
-end =#
-
-@kernel function nonlinear_kernel!(dest, nonlinearity, param, δt)
-    K = @index(Global)
-    dest[K] = _mul(_cis(-δt * nonlinearity(dest[K], param)), dest[K])
+    fields = SVector(getindex.(dest, K...))
+    result = _mul(_cis(-δt * nonlinearity(fields, param)), fields)
+    for (n, field) ∈ enumerate(dest)
+        field[K...] = result[n]
+    end
 end

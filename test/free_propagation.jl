@@ -8,7 +8,7 @@
         nsteps = rand(50:200)
 
         rs = range(; start=-L / 2, length=N, step=ΔL)
-        u0 = lg(rs, rs, l=rand(1:5)) + lg(rs, rs, l=rand(1:5))
+        u0 = (lg(rs, rs, l=rand(1:5)) + lg(rs, rs, l=rand(1:5)), )
 
         dispersion(ks, param) = sum(abs2, ks) / 2
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
@@ -17,14 +17,13 @@
         for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
             solver = Tsolver(nsteps, δt)
             ts, sol = solve(prob, solver, tspan; show_progress=false)
-            @test sol ≈ free_propagation(u0, rs, rs, ts)
+            @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
 
-            new_u0 = [SVector(val) for val ∈ u0]
             for type ∈ (identity, SVector, SMatrix{1,1})
                 new_dispersion(args...) = type(dispersion(args...))
-                prob2 = GrossPitaevskiiProblem(new_u0, lengths; dispersion=new_dispersion)
+                prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion)
                 ts, sol = solve(prob2, solver, tspan; show_progress=false)
-                @test reinterpret(reshape, ComplexF32, sol) ≈ free_propagation(u0, rs, rs, ts)
+                @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
             end
         end
     end
