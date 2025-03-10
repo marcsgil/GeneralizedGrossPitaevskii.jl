@@ -21,7 +21,7 @@ end
 
 @kernel function nonlinear_kernel!(dest::NTuple{N}, nonlinearity, param, δt) where {N}
     K = @index(Global)
-    fields = SVector(getindex.(dest, K...))
+    fields = SVector(getindex.(dest, K))
     result = _mul(_cis(-δt * nonlinearity(fields, param)), fields)
     for (n, field) ∈ enumerate(dest)
         field[K...] = result[n]
