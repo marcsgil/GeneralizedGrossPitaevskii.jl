@@ -111,9 +111,6 @@ get_δt_combination(::StrangSplittingA, δt) = δt / 2, δt / 2, δt
 get_δt_combination(::StrangSplittingB, δt) = δt / 2, δt, δt / 2
 get_δt_combination(::StrangSplittingC, δt) = δt, δt / 2, δt / 2
 
-reinterpret_or_nothing(::Nothing) = nothing
-reinterpret_or_nothing(ξ) = reinterpret(reshape, eltype(eltype(ξ)), ξ)
-
 function get_fft_plans(u, ::GrossPitaevskiiProblem{N,M}) where {N,M}
     ftdims = ntuple(identity, N)
     plan = plan_fft(first(u), ftdims)
@@ -145,6 +142,9 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgrou
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
+init_progress(::Bool, n) = Progress(n)
+init_progress(p, n) = p
+
 function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan;
     show_progress=true,
     save_start=true,
@@ -161,7 +161,7 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
     end
 
     t = tspan[1]
-    progress = Progress(steps_per_save * solver.nsaves)
+    progress = init_progress(show_progress, steps_per_save * solver.nsaves)
     for n ∈ axes(first(_result), ndims(first(_result)))
         slice = map(_result) do x
             @view x[ntuple(n -> :, ndims(first(result)) - 1)..., n]
@@ -170,7 +170,7 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
         for _ ∈ 1:steps_per_save
             t += δt̅
             step!(u, slice, args..., t, δt̅)
-            if show_progress
+            if show_progress != false
                 next!(progress)
             end
         end
