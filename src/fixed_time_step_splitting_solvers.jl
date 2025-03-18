@@ -142,11 +142,18 @@ function get_precomputations(prob, solver::StrangSplitting, tspan, δt, workgrou
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
-init_progress(::Bool, n) = Progress(n)
-init_progress(p, n) = p
+_Progress(::Nothing, n; kwargs...) = Progress(n; kwargs...)
+_Progress(p, n; kwargs...) = p
+
+_next!(::Nothing) = nothing
+_next!(p) = next!(p)
+
+_finish!(p, ::Nothing) = finish!(p)
+_finish!(p, progress) = nothing
 
 function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan;
     show_progress=true,
+    progress=nothing,
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
@@ -161,7 +168,7 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
     end
 
     t = tspan[1]
-    progress = init_progress(show_progress, steps_per_save * solver.nsaves)
+    p = _Progress(progress, steps_per_save * solver.nsaves; enabled=show_progress)
     for n ∈ axes(first(_result), ndims(first(_result)))
         slice = map(_result) do x
             @view x[ntuple(n -> :, ndims(first(result)) - 1)..., n]
@@ -170,16 +177,14 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
         for _ ∈ 1:steps_per_save
             t += δt̅
             step!(u, slice, args..., t, δt̅)
-            if show_progress != false
-                next!(progress)
-            end
+            _next!(p)
         end
         for (dest, src) ∈ zip(slice, u)
             ifftshift!(dest, src)
         end
         ts[n+1] = t
     end
-    finish!(progress)
+    _finish!(p, progress)
 
     ts[begin+1-save_start:end], result
 end
