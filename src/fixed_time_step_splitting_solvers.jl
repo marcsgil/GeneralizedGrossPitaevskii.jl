@@ -32,10 +32,10 @@ function get_exponential(f, u0, grid, param, δt)
     dest
 end
 
-sample_noise!(::Nothing) = nothing
-function sample_noise!(noise)
+sample_noise!(::Nothing, rng) = nothing
+function sample_noise!(noise, rng)
     for x ∈ noise
-        randn!(x)
+        randn!(rng, x)
     end
 end
 
@@ -51,40 +51,40 @@ function diffusion_step!(u, buffer, exp_Dδt, diffusion_func!, plan, iplan)
     perform_ft!(u, iplan, buffer)
 end
 
-function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t, δt, muladd_func!)
-    sample_noise!(ξ)
+function potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t, δt, muladd_func!, rng)
+    sample_noise!(ξ, rng)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
     muladd_func!(u, exp_Vδt, buffer_next, buffer_now, δt, prob.noise_func, ξ, prob.param; ndrange=size(first(u)))
 end
 
 function step!(u, fft_buffer, buffer_next, buffer_now, prob, ::StrangSplittingA, exp_Dδt, exp_Vδt, ξ,
-    muladd_func!, nonlinear_func!, plan, iplan, t, δt)
+    muladd_func!, nonlinear_func!, plan, iplan, t, δt, rng)
 
     diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt / 2, δt / 2, muladd_func!, rng)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt; ndrange=size(first(u)))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt / 2, muladd_func!, rng)
     diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
 function step!(u, fft_buffer, buffer_next, buffer_now, prob, ::StrangSplittingB, exp_Dδt, exp_Vδt, ξ,
-    muladd_func!, nonlinear_func!, plan, iplan, t, δt)
+    muladd_func!, nonlinear_func!, plan, iplan, t, δt, rng)
 
     diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(first(u)))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt, muladd_func!, rng)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(first(u)))
     diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
 end
 
 function step!(u, fft_buffer, buffer_next, buffer_now, prob, ::StrangSplittingC, exp_Dδt, exp_Vδt, ξ,
-    muladd_func!, nonlinear_func!, plan, iplan, t, δt)
+    muladd_func!, nonlinear_func!, plan, iplan, t, δt, rng)
 
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt / 2, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt / 2, δt / 2, muladd_func!, rng)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(first(u)))
     diffusion_step!(u, fft_buffer, exp_Dδt, muladd_func!, plan, iplan)
     nonlinear_func!(u, prob.nonlinearity, prob.param, δt / 2; ndrange=size(first(u)))
-    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt / 2, muladd_func!)
+    potential_pump_step!(u, buffer_next, buffer_now, exp_Vδt, ξ, prob, t + δt, δt / 2, muladd_func!, rng)
 end
 
 """
@@ -157,6 +157,7 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
+    rng=Random.default_rng()
 ) where {N,M}
     FFTW.set_num_threads(fftw_num_threads)
 
@@ -176,7 +177,7 @@ function solve(prob::GrossPitaevskiiProblem{N,M}, solver::StrangSplitting, tspan
 
         for _ ∈ 1:steps_per_save
             t += δt̅
-            step!(u, slice, args..., t, δt̅)
+            step!(u, slice, args..., t, δt̅, rng)
             _next!(p)
         end
         for (dest, src) ∈ zip(slice, u)
