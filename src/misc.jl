@@ -1,8 +1,3 @@
-get_unionall(::Type{T}) where {T} = getproperty(parentmodule(T), nameof(T))
-get_unionall(x) = get_unionall(typeof(x))
-to_device(y, x) = get_unionall(y)(x)
-to_device(y, ::Nothing) = nothing
-
 @kernel function grid_map_kernel!(dest, f, grid, args...)
     K = @index(Global, NTuple)
     dest[K...] = f(ntuple(m -> grid[m][K[m]], length(grid)), args...)
@@ -16,36 +11,15 @@ end
 
 grid_map!(dest, ::Nothing, grid, args...) = nothing
 
-_exp(x) = exp(x)
-_exp(x::AbstractVector) = exp.(x)
-_cis(x) = cis(x)
-_cis(x::AbstractVector) = cis.(x)
+get_exponential(::Nothing, u0, grid, param, δt) = nothing
 
-_getindex(A, K) = A[K[1:ndims(A)]...]
-_getindex(::Nothing, K) = nothing
-
-build_field_at(::Nothing, K) = nothing
-function build_field_at(ξ, K)
-    SVector(map(ξ) do x
-        _getindex(x, K)
-    end)
+function get_exponential(f, u0, grid, param, δt)
+    cis_f(x, param) = _cis(-δt * f(x, param))
+    T = cis_f(ntuple(m -> first(grid[m]), length(grid)), param) |> typeof
+    dest = similar(first(u0), T, size(first(u0))[1:length(grid)])
+    grid_map!(dest, cis_f, grid, param)
+    dest
 end
-
-_mul(x, y) = x * y
-_mul(x::AbstractVector, y::AbstractVector) = x .* y
-_mul(::Nothing, ::Nothing) = nothing
-_mul(x, ::Nothing) = nothing
-_mul(::Nothing, y) = y
-_mul(x, y, args...) = _mul(x, _mul(y, args...))
-
-_add(x, y) = x .+ y
-_add(x, ::Nothing) = x
-_add(::Nothing, y) = nothing
-_add(::Nothing, ::Nothing) = nothing
-_add(x, y, args...) = _add(x, _add(y, args...))
-
-mul_noise(noise_func, ::Nothing, args...) = nothing
-mul_noise(noise_func, ξ, args...) = _mul(noise_func(args...), ξ)
 
 function get_pump_buffer(pump, u, lengths, param, t)
     T = pump(lengths, param, t) |> typeof
@@ -67,4 +41,17 @@ end
 function evaluate_pump!(prob, dest_next, dest_now, t)
     copy!(dest_now, dest_next)
     evaluate_pump!(prob, dest_next, t)
+end
+
+sample_noise!(::Nothing, rng) = nothing
+function sample_noise!(noise, rng)
+    for x ∈ noise
+        randn!(rng, x)
+    end
+end
+
+function perform_ft!(dest, plan, src)
+    for (_dest, _src) in zip(dest, src)
+        mul!(_dest, plan, _src)
+    end
 end

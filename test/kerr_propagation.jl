@@ -4,8 +4,8 @@
         L = 10.0f0
         lengths = (L, L)
         ΔL = L / N
-        δt = 0.01f0 * rand(Float32)
-        nsteps = rand(50:200)
+        dt = 0.01f0 * rand(Float32)
+        nsaves = rand(50:200)
         g = 1.0f0 * randn(Float32)
 
         rs = range(; start=-L / 2, length=N, step=ΔL)
@@ -17,18 +17,17 @@
         param = (; g)
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param)
 
-        tspan = (0, nsteps * δt)
-        for Tsolver ∈ (StrangSplittingA, StrangSplittingB, StrangSplittingC)
-            solver = Tsolver(nsteps, δt)
-            ts, sol = solve(prob, solver, tspan; show_progress=false)
-            good_sol = kerr_propagation(u0[1], rs, rs, ts, nsteps; g=-g)
+        tspan = (0, nsaves * dt)
+        for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC())
+            ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
+            good_sol = kerr_propagation(u0[1], rs, rs, ts, nsaves; g=-g)
             @test sol[1] ≈ good_sol
 
             for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
                 new_dispersion(args...) = type(dispersion(args...))
                 new_nonlinearity(args...) = type(nonlinearity(args...))
                 prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, param)
-                ts, sol = solve(prob2, solver, tspan; show_progress=false)
+                ts, sol = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
                 @test sol[1] ≈ good_sol
             end
         end

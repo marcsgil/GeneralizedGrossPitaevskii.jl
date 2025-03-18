@@ -12,7 +12,13 @@ include("misc.jl")
 
 include("kernels.jl")
 
-include("fixed_time_step_splitting_solvers.jl")
-export solve, StrangSplittingA, StrangSplittingB, StrangSplittingC
+include("strang_splitting.jl")
+export StrangSplittingA, StrangSplittingB, StrangSplittingC
+
+include("simple_solver.jl")
+export SimpleSolver
+
+include("fixed_time_stepping.jl")
+export solve
 
 end

@@ -75,18 +75,19 @@ rs = range(; start=-L / 2, step=L / N, length=N)
 m = ħ^2 / 2.5f0
 δ₀ = 0.49 / ħ
 
-δt = 4.0f0
+dt = 4.0f0
 
 # Full parameter tuple
-param = (; δ₀, m, γ, ħ, L, δL, N, δt)
+param = (; δ₀, m, γ, ħ, L, δL, N, dt)
 
 u0 = (zeros(ComplexF32, N, 10^4),)
 noise_prototype = similar.(u0)
 
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, param, noise_func, noise_prototype)
 tspan = (0, 200.0f0)
-solver = StrangSplittingC(1, δt)
-ts, _sol = GeneralizedGrossPitaevskii.solve(prob, solver, tspan, save_start=false, show_progress=false)
+nsaves = 1
+alg = StrangSplittingC()
+ts, _sol = GeneralizedGrossPitaevskii.solve(prob, alg, tspan; nsaves, dt, save_start=false, show_progress=false)
 sol = dropdims(_sol[1], dims=3)
 
 for x0 ∈ -1:1, w ∈ 3:5
