@@ -41,7 +41,7 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
 
     ts, steps_per_save, dt̅ = resolve_fixed_timestepping(dt, tspan, nsaves)
 
-    result, u, args... = get_precomputations(alg, prob, dt, tspan, nsaves, workgroup_size, save_start)
+    result, u, args... = get_precomputations(alg, prob, dt̅, tspan, nsaves, workgroup_size, save_start)
     _result = map(result) do x
         @view x[ntuple(n -> :, ndims(first(result)) - 1)..., begin+save_start:end]
     end

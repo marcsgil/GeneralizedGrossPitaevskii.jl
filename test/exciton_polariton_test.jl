@@ -50,6 +50,6 @@
 
         @test abs(abs2(Ωr - (δx + im * γx / 2 - g * nx) * (δc + im * γc / 2) / Ωr) * nx / abs2(A) - 1) < 3e-2
 
-        #@test abs(abs2(δx + im * γx / 2 - g * nx) * nx / Ωr^2 / nc - 1) < 3e-2
+        @test abs(abs2(δx + im * γx / 2 - g * nx) * nx / Ωr^2 / nc - 1) < 3e-2
     end
 end
