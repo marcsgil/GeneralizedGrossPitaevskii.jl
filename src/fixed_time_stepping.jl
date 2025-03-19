@@ -59,7 +59,7 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
             _next!(p)
         end
         for (dest, src) ∈ zip(slice, u)
-            ifftshift!(dest, src)
+            _copy!(alg, dest, src)
         end
         ts[n+1] = t
     end

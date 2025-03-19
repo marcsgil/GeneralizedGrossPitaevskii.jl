@@ -90,3 +90,4 @@ function get_precomputations(alg::StrangSplitting, prob, dt, tspan, nsaves, work
     muladd_func!, nonlinear_func!, plan, iplan
 end
 
+_copy!(::StrangSplitting, dest, src) = ifftshift!(dest, src)

@@ -44,3 +44,5 @@ function step!(::SimpleAlg, t, dt, u, prob, rng, fft_buffer, pump_buffer, exp_Dd
         @. u[1] += pump_buffer * prob.noise_prototype[1] * √dt
     end
 end
+
+_copy!(::SimpleAlg, dest, src) = ifftshift!(dest, src)
