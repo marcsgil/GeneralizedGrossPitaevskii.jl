@@ -3,9 +3,9 @@
 
 This function resolves the fixed timestepping for the given solver and time span.
 The problem is that the number of saves, time span and time step will, in general, not be compatible.
-This functions resolves this by calculating a smaller time step `dt̅` such that everything fits.
+This functions resolves this by calculating a smaller time step `_dt` such that everything fits.
 It returns a Tuple containing a vector of time points `ts` (only the first entry is initialized `ts[1] = tspan[1]`), 
-the number of steps per save `steps_per_save` and the new time step `dt̅`.
+the number of steps per save `steps_per_save` and the new time step `_dt`.
 """
 function resolve_fixed_timestepping(dt, tspan, nsaves)
     ts = Vector{typeof(dt)}(undef, nsaves + 1)
@@ -13,9 +13,9 @@ function resolve_fixed_timestepping(dt, tspan, nsaves)
 
     ΔT = (tspan[2] - tspan[1]) / nsaves
     steps_per_save = round(Int, ΔT / dt, RoundUp)
-    dt̅ = ΔT / steps_per_save
+    _dt = ΔT / steps_per_save
 
-    ts, steps_per_save, dt̅
+    ts, steps_per_save, _dt
 end
 
 _Progress(::Nothing, n; kwargs...) = Progress(n; kwargs...)
@@ -39,9 +39,9 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
 )
     FFTW.set_num_threads(fftw_num_threads)
 
-    ts, steps_per_save, dt̅ = resolve_fixed_timestepping(dt, tspan, nsaves)
+    ts, steps_per_save, _dt = resolve_fixed_timestepping(dt, tspan, nsaves)
 
-    result, u, args... = get_precomputations(alg, prob, dt̅, tspan, nsaves, workgroup_size, save_start)
+    result, u, args... = get_precomputations(alg, prob, _dt, tspan, nsaves, workgroup_size, save_start)
     _result = map(result) do x
         @view x[ntuple(n -> :, ndims(first(result)) - 1)..., begin+save_start:end]
     end
@@ -54,8 +54,8 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
         end
 
         for _ ∈ 1:steps_per_save
-            t += dt̅
-            step!(alg, t, dt̅, u, prob, rng, args...)
+            t += _dt
+            step!(alg, t, _dt, u, prob, rng, args...)
             _next!(p)
         end
         for (dest, src) ∈ zip(slice, u)
