@@ -15,8 +15,8 @@ include("kernels.jl")
 include("strang_splitting.jl")
 export StrangSplittingA, StrangSplittingB, StrangSplittingC
 
-include("simple_solver.jl")
-export SimpleSolver
+include("simple_alg.jl")
+export SimpleAlg
 
 include("fixed_time_stepping.jl")
 export solve

@@ -14,11 +14,14 @@
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
 
         tspan = (0, nsaves * dt)
-        for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC())
+        for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC(), SimpleAlg())
             ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
             @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
 
             for type ∈ (identity, SVector, SMatrix{1,1})
+                if alg isa SimpleAlg
+                    type != identity && continue
+                end
                 new_dispersion(args...) = type(dispersion(args...))
                 prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion)
                 ts, sol = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
