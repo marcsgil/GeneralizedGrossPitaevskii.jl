@@ -14,7 +14,7 @@
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
 
         tspan = (0, nsaves * dt)
-        for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC(), SimpleAlg())
+        for alg ∈ (StrangSplittingA(), StrangSplittingB(), SimpleAlg())
             ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
             @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
 

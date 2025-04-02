@@ -8,12 +8,10 @@ struct StrangSplittingA <: StrangSplitting end
 
 struct StrangSplittingB <: StrangSplitting end
 
-struct StrangSplittingC <: StrangSplitting end
-
 function diffusion_step!(t, dt, u, prob, rng, fft_buffer, buffer_next, buffer_now, exp_Ddt, exp_Vdt,
     muladd_func!, nonlinear_func!, plan, iplan)
     perform_ft!(fft_buffer, plan, u)
-    muladd_func!(fft_buffer, exp_Ddt, nothing, nothing, zero(eltype(first(fft_buffer))), nothing, nothing, nothing; ndrange=size(first(fft_buffer)))
+    muladd_func!(fft_buffer, exp_Ddt, nothing, nothing, false, nothing, nothing, nothing, nothing; ndrange=size(first(fft_buffer)))
     perform_ft!(u, iplan, fft_buffer)
 end
 
@@ -21,41 +19,23 @@ function potential_pump_step!(t, dt, u, prob, rng, fft_buffer, buffer_next, buff
     muladd_func!, nonlinear_func!, plan, iplan)
     sample_noise!(prob.noise_prototype, rng)
     evaluate_pump!(prob, buffer_next, buffer_now, t)
-    muladd_func!(u, exp_Vdt, buffer_next, buffer_now, dt, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(u)))
-end
-
-function nonlinear_step!(t, dt, u, prob, rng, fft_buffer, buffer_next, buffer_now, exp_Ddt, exp_Vdt,
-    muladd_func!, nonlinear_func!, plan, iplan)
-    nonlinear_func!(u, prob.nonlinearity, prob.param, dt; ndrange=size(first(u)))
+    muladd_func!(u, exp_Vdt, buffer_next, buffer_now, dt, prob.nonlinearity, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(u)))
 end
 
 function step!(::StrangSplittingA, t, dt, args...)
     potential_pump_step!(t + dt / 2, dt / 2, args...)
-    diffusion_step!(nothing, nothing, args...)
-    nonlinear_step!(nothing, dt, args...)
     diffusion_step!(nothing, nothing, args...)
     potential_pump_step!(t + dt, dt / 2, args...)
 end
 
 function step!(::StrangSplittingB, t, dt, args...)
     diffusion_step!(nothing, nothing, args...)
-    nonlinear_step!(nothing, dt / 2, args...)
     potential_pump_step!(t + dt, dt, args...)
-    nonlinear_step!(nothing, dt / 2, args...)
     diffusion_step!(nothing, nothing, args...)
 end
 
-function step!(::StrangSplittingC, t, dt, args...)
-    potential_pump_step!(t + dt / 2, dt / 2, args...)
-    nonlinear_step!(nothing, dt / 2, args...)
-    diffusion_step!(nothing, nothing, args...)
-    nonlinear_step!(nothing, dt / 2, args...)
-    potential_pump_step!(t + dt, dt / 2, args...)
-end
-
-get_dt_combination(::StrangSplittingA, dt) = dt / 2, dt / 2, dt
-get_dt_combination(::StrangSplittingB, dt) = dt / 2, dt, dt / 2
-get_dt_combination(::StrangSplittingC, dt) = dt, dt / 2, dt / 2
+get_dt_combination(::StrangSplittingA, dt) = dt, dt
+get_dt_combination(::StrangSplittingB, dt) = dt / 2, dt
 
 function get_fft_plans(u, ::GrossPitaevskiiProblem{N,M}) where {N,M}
     ftdims = ntuple(identity, N)

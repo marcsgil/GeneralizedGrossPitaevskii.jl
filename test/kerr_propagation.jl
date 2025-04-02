@@ -18,7 +18,7 @@
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param)
 
         tspan = (0, nsaves * dt)
-        for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC(), SimpleAlg())
+        for alg ∈ (StrangSplittingA(), StrangSplittingB(), SimpleAlg())
             ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
             good_sol = kerr_propagation(u0[1], rs, rs, ts, nsaves; g=-g)
             @test sol[1] ≈ good_sol

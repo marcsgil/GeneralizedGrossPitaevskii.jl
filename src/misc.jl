@@ -11,7 +11,7 @@ end
 
 grid_map!(dest, ::Nothing, grid, args...) = nothing
 
-get_exponential(::Nothing, u0, grid, param, δt) = nothing
+get_exponential(::AdditiveIdentity, u0, grid, param, δt) = MultiplicativeIdentity()
 
 function get_exponential(f, u0, grid, param, δt)
     cis_f(x, param) = _cis(-δt * f(x, param))
@@ -55,3 +55,9 @@ function perform_ft!(dest, plan, src)
         mul!(_dest, plan, _src)
     end
 end
+
+struct AdditiveIdentity end
+(::AdditiveIdentity)(args...) = AdditiveIdentity()
+
+struct MultiplicativeIdentity end
+(::MultiplicativeIdentity)(args...) = MultiplicativeIdentity()

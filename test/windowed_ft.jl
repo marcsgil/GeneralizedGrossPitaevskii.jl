@@ -86,7 +86,7 @@ noise_prototype = similar.(u0)
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, param, noise_func, noise_prototype)
 tspan = (0, 200.0f0)
 nsaves = 1
-alg = StrangSplittingC()
+alg = StrangSplittingA()
 ts, _sol = GeneralizedGrossPitaevskii.solve(prob, alg, tspan; nsaves, dt, save_start=false, show_progress=false)
 sol = dropdims(_sol[1], dims=3)
 

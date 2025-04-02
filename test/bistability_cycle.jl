@@ -43,7 +43,7 @@ using GeneralizedGrossPitaevskii
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
-    for alg ∈ (StrangSplittingA(), StrangSplittingB(), StrangSplittingC())
+    for alg ∈ (StrangSplittingA(), StrangSplittingB())
         ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
         Is = I.(ts, tmax, Imax)

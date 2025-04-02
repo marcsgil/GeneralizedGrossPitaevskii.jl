@@ -8,9 +8,9 @@ struct GrossPitaevskiiProblem{N,M,T1,T2,T3,T4,T5,T6,T7,T8,T9}
     noise_func::T7
     noise_prototype::T8
     param::T9
-    function GrossPitaevskiiProblem(u0, lengths; dispersion::T3=nothing, potential::T4=nothing,
-        nonlinearity::T5=nothing, pump::T6=nothing, noise_func::T7=nothing, noise_prototype::T8=nothing,
-        param::T9=nothing) where {T3,T4,T5,T6,T7,T8,T9}
+    function GrossPitaevskiiProblem(u0, lengths; dispersion::T3=AdditiveIdentity(), potential::T4=AdditiveIdentity(),
+        nonlinearity::T5=AdditiveIdentity(), pump::T6=AdditiveIdentity(), noise_func::T7=AdditiveIdentity(), noise_prototype::T8=AdditiveIdentity(),
+        param::T9=AdditiveIdentity()) where {T3,T4,T5,T6,T7,T8,T9}
         @assert all(x -> ndims(x) ≥ length(lengths), u0)
         @assert all(x -> size(x) == size(first(u0)), u0)
         _u0 = complex.(u0)
