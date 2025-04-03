@@ -9,7 +9,7 @@
     nonlinearity(ψ, param) = @SVector [0, param.g * abs2(ψ[2])]
 
     function pump(r, param, t)
-        SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0f0)
+        SVector(param.A * exp(-sum(abs2, r .- param.L / 2) / param.w^2), 0f0)
     end
 
     ħ = 0.654f0 # (meV*ps)
@@ -29,20 +29,19 @@
 
     g = 1f-2 / ħ
 
-    param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w, g)
-
     L = 256f0
     N = 128
     lengths = (L, L)
     u0 = (zeros(ComplexF32, N, N), zeros(ComplexF32, N, N))
 
+    param = (; ħ, m, ωc, δc, γc, δx, γx, Ωr, A, w, g, L)
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
     nsaves = 256
     dt = 1f-1
     tspan = (0f0, 100f0)
 
-    for alg ∈ (StrangSplitting(), )
+    for alg ∈ (StrangSplitting(),)
         ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
         nx = abs2.(last(sol))[N÷2, N÷2, end]

@@ -13,7 +13,6 @@ _mul(x, ::AdditiveIdentity) = AdditiveIdentity()
 _mul(x, args...) = _mul(x, _mul(args...))
 
 _add(x, y) = x .+ y
-#_add(x::AbstractVector, y) = x .+ y
 _add(::AdditiveIdentity, y) = y
 _add(x, ::AdditiveIdentity) = x
 _add(::AdditiveIdentity, ::AdditiveIdentity) = AdditiveIdentity()

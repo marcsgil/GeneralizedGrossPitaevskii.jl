@@ -20,7 +20,7 @@ using GeneralizedGrossPitaevskii
     end
 
     function pump(x, param, t)
-        exp(-sum(abs2, x) / param.width^2) * √I(t, param.tmax, param.Imax)
+        exp(-sum(abs2, x .- param.L / 2) / param.width^2) * √I(t, param.tmax, param.Imax)
     end
 
     function bistability_curve(n, δ, g, γ)
@@ -29,7 +29,7 @@ using GeneralizedGrossPitaevskii
 
     L = 256.0f0
     lengths = (L,)
-    u0 = (zeros(ComplexF32, ntuple(n -> 256, length(lengths))), )
+    u0 = (zeros(ComplexF32, ntuple(n -> 256, length(lengths))),)
 
     Imax = 0.6f0
     width = 50.0f0
@@ -39,11 +39,11 @@ using GeneralizedGrossPitaevskii
     tspan = (0, 3300f0)
     tmax = tspan[end]
 
-    param = (; tmax, Imax, width, ωₚ, ω₀, kz, γ, g)
+    param = (; tmax, Imax, width, ωₚ, ω₀, kz, γ, g, L)
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
-    for alg ∈ (StrangSplitting(), )
+    for alg ∈ (StrangSplitting(),)
         ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
         Is = I.(ts, tmax, Imax)

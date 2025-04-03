@@ -5,7 +5,7 @@ function get_precomputations(::SimpleAlg, prob, dt, tspan, nsaves, workgroup_siz
         stack(x for _ ∈ 1:nsaves+save_start)
     end
 
-    u = fftshift.(prob.u0)
+    u = copy.(prob.u0)
     fft_buffer = similar.(u)
 
     pump_buffer = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, dt)
@@ -44,5 +44,3 @@ function step!(::SimpleAlg, t, dt, u, prob, rng, fft_buffer, pump_buffer, exp_Dd
         @. u[1] += pump_buffer * prob.noise_prototype[1] * √dt
     end
 end
-
-_copy!(::SimpleAlg, dest, src) = ifftshift!(dest, src)

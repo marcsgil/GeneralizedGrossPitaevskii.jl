@@ -50,5 +50,3 @@ function step!(::ExpFiniteDiff, t, dt, u, prob, rng, finite_diff_buffer, pump_bu
         @. u[1] += pump_buffer * prob.noise_prototype[1] * √dt
     end
 end
-
-_copy!(::ExpFiniteDiff, dest, src) = copy!(dest, src)

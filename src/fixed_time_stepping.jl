@@ -58,9 +58,7 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
             step!(alg, t, _dt, u, prob, rng, args...)
             _next!(p)
         end
-        for (dest, src) ∈ zip(slice, u)
-            _copy!(alg, dest, src)
-        end
+        map(copy!, slice, u)
         ts[n+1] = t
     end
     _finish!(p, progress)

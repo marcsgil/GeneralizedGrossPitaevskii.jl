@@ -37,7 +37,7 @@ function get_precomputations(::StrangSplitting, prob, dt, tspan, nsaves, workgro
         stack(x for _ ∈ 1:nsaves+save_start)
     end
 
-    u = fftshift.(prob.u0)
+    u = copy.(prob.u0)
     fft_buffer = similar.(u)
 
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, dt)
@@ -55,5 +55,3 @@ function get_precomputations(::StrangSplitting, prob, dt, tspan, nsaves, workgro
     result, u, fft_buffer, buffer_next, buffer_now, exp_Ddt, exp_Vdt,
     muladd_func!, plan, iplan
 end
-
-_copy!(::StrangSplitting, dest, src) = ifftshift!(dest, src)
