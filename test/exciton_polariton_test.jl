@@ -42,7 +42,7 @@
     dt = 1f-1
     tspan = (0f0, 100f0)
 
-    for alg ∈ (StrangSplittingA(), StrangSplittingB())
+    for alg ∈ (StrangSplitting(), )
         ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
         nx = abs2.(last(sol))[N÷2, N÷2, end]

@@ -9,8 +9,6 @@ function grid_map!(dest, f, grid, args...)
     kernel!(dest, f, grid, args...; ndrange=size(dest))
 end
 
-grid_map!(dest, ::Nothing, grid, args...) = nothing
-
 get_exponential(::AdditiveIdentity, u0, grid, param, δt) = MultiplicativeIdentity()
 
 function get_exponential(f, u0, grid, param, δt)
@@ -26,9 +24,9 @@ function get_pump_buffer(pump, u, lengths, param, t)
     similar(first(u), T, size(first(u))[1:length(lengths)])
 end
 
-get_pump_buffer(::Nothing, args...) = nothing
+get_pump_buffer(::AdditiveIdentity, args...) = AdditiveIdentity()
 
-function evaluate_pump!(::GrossPitaevskiiProblem{N,M,T1,T2,T3,T4,T5,Nothing},
+function evaluate_pump!(::GrossPitaevskiiProblem{N,M,T1,T2,T3,T4,T5,AdditiveIdentity},
     args...) where {M,N,T1,T2,T3,T4,T5}
     nothing
 end
@@ -43,7 +41,7 @@ function evaluate_pump!(prob, dest_next, dest_now, t)
     evaluate_pump!(prob, dest_next, t)
 end
 
-sample_noise!(::Nothing, rng) = nothing
+sample_noise!(::AdditiveIdentity, rng) = nothing
 function sample_noise!(noise, rng)
     for x ∈ noise
         randn!(rng, x)
@@ -55,9 +53,3 @@ function perform_ft!(dest, plan, src)
         mul!(_dest, plan, _src)
     end
 end
-
-struct AdditiveIdentity end
-(::AdditiveIdentity)(args...) = AdditiveIdentity()
-
-struct MultiplicativeIdentity end
-(::MultiplicativeIdentity)(args...) = MultiplicativeIdentity()

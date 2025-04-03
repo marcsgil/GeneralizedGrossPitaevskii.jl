@@ -2,8 +2,8 @@ using Test, Random, Logging, StructuredLight, GeneralizedGrossPitaevskii, FFTW, 
 
 Random.seed!(1234)
 
-#include("free_propagation.jl")
-#include("kerr_propagation.jl")
+include("free_propagation.jl")
+include("kerr_propagation.jl")
 include("bistability_cycle.jl")
-#include("exciton_polariton_test.jl")
-#include("windowed_ft.jl")
+include("exciton_polariton_test.jl")
+include("windowed_ft.jl")

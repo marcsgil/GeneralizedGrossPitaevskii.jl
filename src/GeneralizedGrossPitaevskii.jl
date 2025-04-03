@@ -8,12 +8,12 @@ using Reexport
 include("problem.jl")
 export GrossPitaevskiiProblem
 
-include("misc.jl")
-
 include("kernels.jl")
 
+include("misc.jl")
+
 include("strang_splitting.jl")
-export StrangSplittingA, StrangSplittingB, StrangSplittingC
+export StrangSplitting
 
 include("simple_alg.jl")
 export SimpleAlg

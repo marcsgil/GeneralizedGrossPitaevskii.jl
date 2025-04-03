@@ -34,7 +34,7 @@ using GeneralizedGrossPitaevskii
     Imax = 0.6f0
     width = 50.0f0
 
-    dt = 0.1f0
+    dt = 0.05f0
     nsaves = 512
     tspan = (0, 3300f0)
     tmax = tspan[end]
@@ -43,7 +43,7 @@ using GeneralizedGrossPitaevskii
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
-    for alg ∈ (StrangSplittingA(), StrangSplittingB())
+    for alg ∈ (StrangSplitting(), )
         ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
         Is = I.(ts, tmax, Imax)
