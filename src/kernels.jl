@@ -1,26 +1,28 @@
 struct AdditiveIdentity end
-(::AdditiveIdentity)(args...) = AdditiveIdentity()
+const additiveIdentity = AdditiveIdentity()
+(::AdditiveIdentity)(args...) = additiveIdentity
 
 struct MultiplicativeIdentity end
-(::MultiplicativeIdentity)(args...) = MultiplicativeIdentity()
+const multiplicativeIdentity = MultiplicativeIdentity()
+(::MultiplicativeIdentity)(args...) = multiplicativeIdentity
 
 _mul(x, y) = x * y
 _mul(x::AbstractVector, y::AbstractVector) = x .* y
 _mul(::MultiplicativeIdentity, y) = y
 _mul(x, ::MultiplicativeIdentity) = x
-_mul(::MultiplicativeIdentity, ::MultiplicativeIdentity) = MultiplicativeIdentity()
-_mul(x, ::AdditiveIdentity) = AdditiveIdentity()
+_mul(::MultiplicativeIdentity, ::MultiplicativeIdentity) = multiplicativeIdentity
+_mul(x, ::AdditiveIdentity) = additiveIdentity
 _mul(x, args...) = _mul(x, _mul(args...))
 
 _add(x, y) = x .+ y
 _add(::AdditiveIdentity, y) = y
 _add(x, ::AdditiveIdentity) = x
-_add(::AdditiveIdentity, ::AdditiveIdentity) = AdditiveIdentity()
+_add(::AdditiveIdentity, ::AdditiveIdentity) = additiveIdentity
 _add(x, args...) = _add(x, _add(args...))
 
 _cis(x) = cis(x)
 _cis(x::AbstractVector) = cis.(x)
-_cis(::AdditiveIdentity) = MultiplicativeIdentity()
+_cis(::AdditiveIdentity) = multiplicativeIdentity
 
 _getindex(A, K) = A[K[1:ndims(A)]...]
 _getindex(::T, K) where {T<:Union{AdditiveIdentity,MultiplicativeIdentity}} = T()

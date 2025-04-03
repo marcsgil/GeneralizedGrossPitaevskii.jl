@@ -9,7 +9,7 @@ function grid_map!(dest, f, grid, args...)
     kernel!(dest, f, grid, args...; ndrange=size(dest))
 end
 
-get_exponential(::AdditiveIdentity, u0, grid, param, δt) = MultiplicativeIdentity()
+get_exponential(::AdditiveIdentity, u0, grid, param, δt) = multiplicativeIdentity
 
 function get_exponential(f, u0, grid, param, δt)
     cis_f(x, param) = _cis(-δt * f(x, param))
@@ -24,7 +24,7 @@ function get_pump_buffer(pump, u, lengths, param, t)
     similar(first(u), T, size(first(u))[1:length(lengths)])
 end
 
-get_pump_buffer(::AdditiveIdentity, args...) = AdditiveIdentity()
+get_pump_buffer(::AdditiveIdentity, args...) = additiveIdentity
 
 function evaluate_pump!(::GrossPitaevskiiProblem{N,M,T1,T2,T3,T4,T5,AdditiveIdentity},
     args...) where {M,N,T1,T2,T3,T4,T5}
