@@ -31,30 +31,32 @@ function I(t, tmax, Imax)
 end
 
 function pump(x, param, t)
-    exp(-sum(abs2, x) / param.width^2) * √I(t, param.tmax, param.Imax)
+    exp(-sum(abs2, x .- param.L / 2) / param.width^2) * √I(t, param.tmax, param.Imax)
 end
 
-nonlinearity(ψ, param) = param.g * abs2(ψ)
+nonlinearity(ψ, param) = param.g * abs2(ψ[1])
 
 L = 256.0f0
 lengths = (L,)
 N = 256
-u0 = zeros(ComplexF32, ntuple(n -> N, length(lengths)))
+u0 = (zeros(ComplexF32, ntuple(n -> N, length(lengths))), )
 xs = range(; start=-L / 2, step=L / N, length=N)
 
 Imax = maximum(Is_theo)
 width = 50.0f0
 ##
-solver = StrangSplittingB(512, 0.1f0)
+dt = 0.1f0
+nsaves = 512
+alg = StrangSplitting()
 
 tspan = (0, 4000.0f0)
 tmax = tspan[end]
-param = (; tmax, Imax, width, δ, ω₀, kz, γ, g)
+param = (; tmax, Imax, width, δ, ω₀, kz, γ, g, L)
 
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 
-ts, sol = solve(prob, solver, tspan)
-heatmap(xs, ts, abs2.(sol))
+ts, sol = solve(prob, alg, tspan; dt, nsaves)
+heatmap(abs2.(sol[1]))
 ##
 Is = I.(ts, tmax, Imax)
 color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
@@ -62,7 +64,7 @@ color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
 with_theme(theme_latexfonts()) do
     fig = Figure(fontsize=24)
     ax = Axis(fig[1, 1]; xlabel="I", ylabel="n")
-    lines!(Is, dropdims(maximum(abs2, sol, dims=1), dims=1); label="Simulation", color=:red, linewidth=5)
+    lines!(Is, dropdims(maximum(abs2, sol[1], dims=1), dims=1); label="Simulation", color=:red, linewidth=5)
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=5, label="Theory", linestyle=:dash)
     axislegend(ax, position=:rb)
     fig
