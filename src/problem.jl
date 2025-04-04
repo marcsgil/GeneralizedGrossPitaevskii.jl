@@ -1,7 +1,7 @@
 """
     GrossPitaevskiiProblem(u0, lengths; dispersion=additiveIdentity, potential=additiveIdentity,
         nonlinearity=additiveIdentity, pump=additiveIdentity, noise_func=additiveIdentity, 
-        noise_prototype=additiveIdentity, param=nothing)
+        noise_prototype=additiveIdentity, param=nothing) -> GrossPitaevskiiProblem
 
 Represents a generalized Gross-Pitaevskii equation problem with specified initial conditions and domain.
 
@@ -11,49 +11,83 @@ exciton-polariton condensates, and other nonlinear wave phenomena.
 
 The equation to be solved is of the form:
 
-`` i ∂u(r, t)/∂t = D(-i∇)u + V(r)u + G(u)u + F(r, t) + η(ψ) ξ ``
+`` i ∂u(r, t)/∂t = D(-i∇)u + V(r)u + G(u)u + i F(r, t) + η(ψ) ξ ``
 
 # Arguments
 - `u0::Tuple`: Initial conditions for the fields. This should be a tuple of arrays, where each array 
   represents a field in the simulation. The fields should have the same shape.
-- `lengths::Tuple`: Physical dimensions of the simulation domain
-- `dispersion`: Function defining energy dispersion term. This should have the signature `
-  dispersion(k, param)`, where `k` is a tuple representing a point in momentum space 
+- `lengths::Tuple`: Physical dimensions of the simulation domain.
+- `dispersion`: D(-i∇) in the above equation. Function defining energy dispersion term. Should have 
+  the signature `dispersion(k, param)`, where `k` is a tuple representing a point in momentum space 
   and `param` are additional parameters.
-- `potential`: Spatial potential function. This should have the signature `potential(r, param)`, where `r` 
-is a tuple representing a point in direct space and `param` are additional parameters.
-- `nonlinearity`: Function defining nonlinear interaction terms. This should have the signature 
-  `nonlinearity(ψ, param)`, where `ψ` is a tuple representing the fields at a point in direct space
-  and `param` are additional parameters.
-- `pump`: Function defining pump/drive terms, may be time-dependent. This should have the signature 
-  `pump(r, param, t)`, where `r` is a tuple representing a point in direct space, `param` are additional 
-  parameters, and `t` is time.
-- `noise_func`: Function defining stochastic terms. This should have the signature 
+- `potential`: V(r) in the above equation. Spatial potential function. Should have the signature 
+  `potential(r, param)`, where `r` is a tuple representing a point in direct space and `param` 
+  are additional parameters.
+- `nonlinearity`: G(u) in the above equation. Function defining nonlinear interaction terms. Should have 
+  the signature `nonlinearity(ψ, param)`, where `ψ` is a tuple representing the fields at a point 
+  in direct space and `param` are additional parameters.
+- `pump`: F(r, t) in the above equation. Function defining pump/drive terms, may be time-dependent. Should have 
+  the signature `pump(r, param, t)`, where `r` is a tuple representing a point in direct space, `param` 
+  are additional parameters, and `t` is time.
+- `noise_func`: η(ψ) in the above equation. Function defining stochastic terms. Should have the signature 
   `noise_func(ψ, param)`, where `ψ` is a tuple representing the fields at a point in direct space and 
   `param` are additional parameters.
-- `noise_prototype`: Prototype for noise terms
-- `param`: Additional parameters used by the component functions
+- `noise_prototype`: ξ in the above equation. Prototype for noise terms. When specified, this should be a tuple 
+  of arrays with the correct element type and shape for the noise terms. We will call `randn!(rng, noise_prototype)` 
+  to generate the noise terms, which generates a random gaussian number with mean ⟨ξ⟩ = 0 and mean 
+  absolute square ⟨|ξ|²⟩ = 1.
+- `param`: Additional parameters used by the component functions.
 
 # Examples
 ```julia
 # Free propagation example
 L = 10.0
 N = 128
-u0 = ()
+u0 = (rand(ComplexF32, N, N),)
 dispersion(ks, param) = sum(abs2, ks) / 2
 prob = GrossPitaevskiiProblem(u0, (L, L); dispersion)
+```
 
+```julia
 # Exciton-polariton example
+
+# Define system parameters
+param = (;
+    ħ = 1.0,           # Reduced Planck constant
+    m = 1.0,           # Effective mass
+    δc = 0.0,          # Cavity detuning
+    δx = 0.0,          # Exciton detuning
+    γc = 0.1,          # Cavity decay rate
+    γx = 0.1,          # Exciton decay rate
+    Ωr = 2.0,          # Rabi coupling
+    g = 0.01,          # Nonlinearity strength
+    A = 1.0,           # Pump amplitude
+    w = 2.0            # Pump width
+)
+
+# Define grid parameters
+L = 10.0
+N = 128
+lengths = (L, L)
+
+# Initial condition (photon and exciton fields)
+u0 = (zeros(ComplexF64, N, N), zeros(ComplexF64, N, N))
+
+# Define components of the generalized GP equation
 function dispersion(k, param)
     Dcc = param.ħ * sum(abs2, k) / 2param.m - param.δc - im * param.γc
     Dxx = -param.δx - im * param.γx
     Dxc = param.Ωr
     @SMatrix [Dcc Dxc; Dxc Dxx]
 end
+
 nonlinearity(ψ, param) = @SVector [0, param.g * abs2(ψ[2])]
+
 function pump(r, param, t)
-    SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0f0)
+    SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0.0)
 end
+
+# Create the problem
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 ```
 """
