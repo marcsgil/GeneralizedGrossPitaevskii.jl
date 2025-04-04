@@ -35,7 +35,7 @@ function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
     save_start=true,
     fftw_num_threads=1,
     workgroup_size=(),
-    rng=Random.default_rng()
+    rng=nothing
 )
     FFTW.set_num_threads(fftw_num_threads)
 

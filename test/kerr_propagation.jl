@@ -24,10 +24,6 @@
             @test sol[1] ≈ good_sol
 
             for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
-                if alg isa SimpleAlg
-                    (type != identity || type′ != identity) && continue
-                end
-
                 new_dispersion(args...) = type(dispersion(args...))
                 new_nonlinearity(args...) = type(nonlinearity(args...))
                 prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, param)
