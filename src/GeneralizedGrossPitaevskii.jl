@@ -1,6 +1,6 @@
 module GeneralizedGrossPitaevskii
 
-using KernelAbstractions, FFTW, LinearAlgebra, Random, ProgressMeter
+using KernelAbstractions, FFTW, LinearAlgebra, Random, ProgressMeter, CommonSolve
 
 using Reexport
 @reexport using StaticArrays

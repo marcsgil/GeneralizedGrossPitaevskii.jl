@@ -27,6 +27,10 @@ _next!(p) = next!(p)
 _finish!(p, ::Nothing) = finish!(p)
 _finish!(p, progress) = nothing
 
+function CommonSolve.solve!(iter::GrossPitaevskiiIterator)
+    
+end
+
 function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
     dt,
     nsaves,
