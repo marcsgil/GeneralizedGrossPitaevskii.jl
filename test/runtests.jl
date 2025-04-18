@@ -1,3 +1,6 @@
+using Preferences: set_preferences!
+set_preferences!("GeneralizedGrossPitaevskii", "dispatch_doctor_mode" => "error")
+
 using Test, Random, Logging, StructuredLight, GeneralizedGrossPitaevskii, FFTW, LinearAlgebra
 
 Random.seed!(1234)

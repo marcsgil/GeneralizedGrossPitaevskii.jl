@@ -6,17 +6,15 @@ import CommonSolve: solve, init, step!, solve!
 using Reexport
 @reexport using StaticArrays
 
-include("problem.jl")
-export GrossPitaevskiiProblem
+using DispatchDoctor: @stable
+@stable default_mode = "disable" begin
+    include("problem.jl")
+    include("kernels.jl")
+    include("misc.jl")
+    include("fixed_time_stepping.jl")
+    include("strang_splitting.jl")
+end
 
-include("kernels.jl")
-
-include("misc.jl")
-
-include("fixed_time_stepping.jl")
-export solve
-
-include("strang_splitting.jl")
-export StrangSplitting
+export GrossPitaevskiiProblem, solve, StrangSplitting
 
 end

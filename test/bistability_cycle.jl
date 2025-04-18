@@ -25,6 +25,15 @@
         n * (γ^2 / 4 + (g * n - δ)^2)
     end
 
+    dispersion2(ks, param) = SVector(dispersion(ks, param))
+    dispersion3(ks, param) = SMatrix{1,1}(dispersion(ks, param))
+
+    nonlinearity2(ψ, param) = SVector(nonlinearity(ψ, param))
+    nonlinearity3(ψ, param) = SMatrix{1,1}(nonlinearity(ψ, param))
+
+    pump2(x, param, t) = SVector(pump(x, param, t))
+    pump3(x, param, t) = SMatrix{1,1}(pump(x, param, t))
+
     L = 256.0f0
     lengths = (L,)
     u0 = (zeros(ComplexF32, ntuple(n -> 256, length(lengths))),)
@@ -55,11 +64,8 @@
 
     @test sum(error[140:400]) / length(Is) ≤ 3e-3
 
-    for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1}), pump_type ∈ (identity, SVector)
-        new_dispersion(args...) = type(dispersion(args...))
-        new_nonlinearity(args...) = type′(nonlinearity(args...))
-        new_pump(args...) = pump_type(pump(args...))
-        prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
+    for dispersion ∈ (dispersion, dispersion2, dispersion3), nonlinearity ∈ (nonlinearity, nonlinearity2, nonlinearity3), pump ∈ (pump, pump2, pump3)
+        prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
         ts, sol2 = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
         @test sol2[1] ≈ sol[1]
     end

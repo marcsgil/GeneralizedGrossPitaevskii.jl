@@ -10,21 +10,21 @@
         rs = range(; start=-L / 2, length=N, step=ΔL)
         u0 = (lg(rs, rs, l=rand(1:5)) + lg(rs, rs, l=rand(1:5)),)
 
-        dispersion(ks, param) = sum(abs2, ks) / 2
-        prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
+        ts = 0:dt:nsaves * dt
+        tspan = extrema(ts)
 
-        tspan = (0, nsaves * dt)
+        sl_sol =  free_propagation(u0[1], rs, rs, ts)
+
+        dispersion1(ks, param) = sum(abs2, ks) / 2
+        dispersion2(ks, param) = SVector(dispersion1(ks, param))
+        dispersion3(ks, param) = SMatrix{1,1}(dispersion1(ks, param))
 
         alg = StrangSplitting()
 
-        ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
-        @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
-
-        for type ∈ (identity, SVector, SMatrix{1,1})
-            new_dispersion(args...) = type(dispersion(args...))
-            prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion)
-            ts, sol = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
-            @test sol[1] ≈ free_propagation(u0[1], rs, rs, ts)
+        for dispersion in (dispersion1, dispersion2, dispersion3)
+            prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
+            sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)[2]
+            @test sol[1] ≈ sl_sol
         end
     end
 end
