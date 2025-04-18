@@ -22,7 +22,7 @@ function resolve_fixed_timestepping(dt, tspan, nsaves)
     _dt, ts, steps_per_save
 end
 
-function CommonSolve.solve!(iter::FixedTimeSteppingIterator)
+function solve!(iter::FixedTimeSteppingIterator)
     save_start = iter.save_start
     steps_per_save = iter.steps_per_save
     dt = iter.dt
@@ -41,13 +41,27 @@ function CommonSolve.solve!(iter::FixedTimeSteppingIterator)
 
         for _ ∈ 1:steps_per_save
             t += dt
-            CommonSolve.step!(iter, t, dt)
+            step!(iter, t, dt)
             _next!(p)
         end
         map(copy!, slice, iter.u)
         ts[n+1] = t
     end
-    #_finish!(p, progress)
+    _finish!(p, iter.given_progress)
 
     ts[begin+1-save_start:end], iter.result
+end
+
+"""
+    solve(prob, alg, tspan;
+    dt,
+    nsaves,
+    show_progress=true,
+    progress=nothing,
+    save_start=true,
+    workgroup_size=(),
+    rng=nothing)
+"""
+function solve(prob::GrossPitaevskiiProblem, args...; kwargs...)
+    solve!(init(prob, args...; kwargs...))
 end

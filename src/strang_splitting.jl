@@ -1,12 +1,13 @@
 struct StrangSplitting <: FixedTimeSteppingAlgorithm end
 
-struct StrangSplittingIterator{PROB,T,PROG,R,U,D,V,PB,PL,IPL,K,RNG} <:FixedTimeSteppingIterator
+struct StrangSplittingIterator{PROB,T,PROG1,PROG2,R,U,D,V,PB,PL,IPL,K,RNG} <:FixedTimeSteppingIterator
     prob::PROB
     dt::T
     ts::Vector{T}
     steps_per_save::Int
     save_start::Bool
-    progress::PROG
+    progress::PROG1
+    given_progress::PROG2
     result::R
     u::U
     ft_buffer::U
@@ -20,7 +21,7 @@ struct StrangSplittingIterator{PROB,T,PROG,R,U,D,V,PB,PL,IPL,K,RNG} <:FixedTimeS
     rng::RNG
 end
 
-function CommonSolve.init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
+function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
     dt,
     nsaves,
     show_progress=true,
@@ -34,7 +35,7 @@ function CommonSolve.init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan
     end
 
     dt, ts, steps_per_save = resolve_fixed_timestepping(dt, tspan, nsaves)
-    progress = _Progress(progress, steps_per_save * nsaves; enabled=show_progress)
+    _progress = _Progress(progress, steps_per_save * nsaves; enabled=show_progress)
 
     u = copy.(prob.u0)
     ft_buffer = similar.(u)
@@ -51,7 +52,7 @@ function CommonSolve.init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan
     backend = get_backend(first(prob.u0))
     kernel! = muladd_kernel!(backend, workgroup_size...)
 
-    StrangSplittingIterator(prob, dt, ts, steps_per_save, save_start, progress, result, u, ft_buffer, exp_Ddt, exp_Vdt,
+    StrangSplittingIterator(prob, dt, ts, steps_per_save, save_start, _progress, progress, result, u, ft_buffer, exp_Ddt, exp_Vdt,
         buffer_next, buffer_now, plan, iplan, kernel!, rng)
 end
 
@@ -70,7 +71,7 @@ function potential_pump_step!(t, dt, iter)
         prob.nonlinearity, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(iter.u)))
 end
 
-function CommonSolve.step!(iter::StrangSplittingIterator, t, dt)
+function step!(iter::StrangSplittingIterator, t, dt)
     potential_pump_step!(t + dt / 2, dt / 2, iter)
     diffusion_step!(iter)
     potential_pump_step!(t + dt, dt / 2, iter)
