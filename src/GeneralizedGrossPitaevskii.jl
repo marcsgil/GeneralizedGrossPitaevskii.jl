@@ -1,6 +1,8 @@
 module GeneralizedGrossPitaevskii
 
 using KernelAbstractions, FFTW, LinearAlgebra, Random, ProgressMeter, CommonSolve
+import CommonSolve: solve, step!
+export solve
 
 using Reexport
 @reexport using StaticArrays
@@ -12,10 +14,9 @@ include("kernels.jl")
 
 include("misc.jl")
 
+include("fixed_time_stepping.jl")
+
 include("strang_splitting.jl")
 export StrangSplitting
-
-include("fixed_time_stepping.jl")
-export solve
 
 end

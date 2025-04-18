@@ -1,39 +1,12 @@
-abstract type AbstractAlgorithm end
-
-abstract type FixedTimeSteppingAlgorithm <: AbstractAlgorithm end
-
 struct StrangSplitting <: FixedTimeSteppingAlgorithm end
 
-function diffusion_step!(iter)
-    perform_ft!(iter.ft_buffer, iter.plan, iter.u)
-    muladd_func!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, false, additiveIdentity,
-        additiveIdentity, additiveIdentity, nothing; ndrange=size(first(fft_buffer)))
-    perform_ft!(iter.u, iter.iplan, iter.fft_buffer)
-end
-
-function potential_pump_step!(t, dt, iter)
-    prob = iter.prob
-    sample_noise!(prob.noise_prototype, iter.rng)
-    evaluate_pump!(prob, iter.pump_buffer_next, iter.pump_buffer_now, t)
-    muladd_func!(iter.u, iter.exp_Vdt, iter.pump_buffer_next, iter.pump_buffer_now, dt,
-        prob.nonlinearity, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(iter.u)))
-end
-
-function CommonSolve.step!(iter::GrossPitaevskiiIterator, t, dt)
-    potential_pump_step!(t + dt / 2, dt / 2, iter)
-    diffusion_step!(iter)
-    potential_pump_step!(t + dt, dt / 2, iter)
-end
-
-function get_fft_plans(u, ::GrossPitaevskiiProblem{N,M}) where {N,M}
-    ftdims = ntuple(identity, N)
-    plan = plan_fft(first(u), ftdims)
-    iplan = inv(plan)
-    plan, iplan
-end
-
-struct GrossPitaevskiiIterator{PR,R,U,D,V,PB,PL,IPL,K,RNG}
-    prob::PR
+struct StrangSplittingIterator{PROB,T,PROG,R,U,D,V,PB,PL,IPL,K,RNG} <:FixedTimeSteppingIterator
+    prob::PROB
+    dt::T
+    ts::Vector{T}
+    steps_per_save::Int
+    save_start::Bool
+    progress::PROG
     result::R
     u::U
     ft_buffer::U
@@ -44,14 +17,24 @@ struct GrossPitaevskiiIterator{PR,R,U,D,V,PB,PL,IPL,K,RNG}
     plan::PL
     iplan::IPL
     kernel!::K
-    rng::RGN
+    rng::RNG
 end
 
 function CommonSolve.init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
-    dt, nsaves, save_start, workgroup_size, rng, kwargs...)
+    dt,
+    nsaves,
+    show_progress=true,
+    progress=nothing,
+    save_start=true,
+    workgroup_size=(),
+    rng=nothing)
+
     result = map(prob.u0) do x
         stack(x for _ ∈ 1:nsaves+save_start)
     end
+
+    dt, ts, steps_per_save = resolve_fixed_timestepping(dt, tspan, nsaves)
+    progress = _Progress(progress, steps_per_save * nsaves; enabled=show_progress)
 
     u = copy.(prob.u0)
     ft_buffer = similar.(u)
@@ -68,6 +51,27 @@ function CommonSolve.init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan
     backend = get_backend(first(prob.u0))
     kernel! = muladd_kernel!(backend, workgroup_size...)
 
-    GrossPitaevskiiIterator(prob, result, u, ft_buffer, exp_Ddt, exp_Vdt,
+    StrangSplittingIterator(prob, dt, ts, steps_per_save, save_start, progress, result, u, ft_buffer, exp_Ddt, exp_Vdt,
         buffer_next, buffer_now, plan, iplan, kernel!, rng)
+end
+
+function diffusion_step!(iter)
+    perform_ft!(iter.ft_buffer, iter.plan, iter.u)
+    iter.kernel!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, false, additiveIdentity,
+        additiveIdentity, additiveIdentity, nothing; ndrange=size(first(iter.ft_buffer)))
+    perform_ft!(iter.u, iter.iplan, iter.ft_buffer)
+end
+
+function potential_pump_step!(t, dt, iter)
+    prob = iter.prob
+    sample_noise!(prob.noise_prototype, iter.rng)
+    evaluate_pump!(prob, iter.pump_buffer_next, iter.pump_buffer_now, t)
+    iter.kernel!(iter.u, iter.exp_Vdt, iter.pump_buffer_next, iter.pump_buffer_now, dt,
+        prob.nonlinearity, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(iter.u)))
+end
+
+function CommonSolve.step!(iter::StrangSplittingIterator, t, dt)
+    potential_pump_step!(t + dt / 2, dt / 2, iter)
+    diffusion_step!(iter)
+    potential_pump_step!(t + dt, dt / 2, iter)
 end

@@ -1,3 +1,7 @@
+abstract type FixedTimeSteppingAlgorithm end
+
+abstract type FixedTimeSteppingIterator end
+
 """
     resolve_fixed_timestepping(dt, tspan, nsaves)
 
@@ -15,57 +19,35 @@ function resolve_fixed_timestepping(dt, tspan, nsaves)
     steps_per_save = round(Int, ΔT / dt, RoundUp)
     _dt = ΔT / steps_per_save
 
-    ts, steps_per_save, _dt
+    _dt, ts, steps_per_save
 end
 
-_Progress(::Nothing, n; kwargs...) = Progress(n; kwargs...)
-_Progress(p, n; kwargs...) = p
+function CommonSolve.solve!(iter::FixedTimeSteppingIterator)
+    save_start = iter.save_start
+    steps_per_save = iter.steps_per_save
+    dt = iter.dt
+    p = iter.progress
+    ts = iter.ts
 
-_next!(::Nothing) = nothing
-_next!(p) = next!(p)
-
-_finish!(p, ::Nothing) = finish!(p)
-_finish!(p, progress) = nothing
-
-function CommonSolve.solve!(iter::GrossPitaevskiiIterator)
-    
-end
-
-function solve(prob, alg::FixedTimeSteppingAlgorithm, tspan;
-    dt,
-    nsaves,
-    show_progress=true,
-    progress=nothing,
-    save_start=true,
-    fftw_num_threads=1,
-    workgroup_size=(),
-    rng=nothing
-)
-    FFTW.set_num_threads(fftw_num_threads)
-
-    ts, steps_per_save, _dt = resolve_fixed_timestepping(dt, tspan, nsaves)
-
-    result, u, args... = get_precomputations(alg, prob, _dt, tspan, nsaves, workgroup_size, save_start)
-    _result = map(result) do x
-        @view x[ntuple(n -> :, ndims(first(result)) - 1)..., begin+save_start:end]
+    result = map(iter.result) do x
+        @view x[ntuple(n -> :, ndims(first(iter.result)) - 1)..., begin+save_start:end]
     end
 
-    t = tspan[1]
-    p = _Progress(progress, steps_per_save * nsaves; enabled=show_progress)
-    for n ∈ axes(first(_result), ndims(first(_result)))
-        slice = map(_result) do x
+    t = ts[1]
+    for n ∈ axes(first(result), ndims(first(result)))
+        slice = map(result) do x
             @view x[ntuple(n -> :, ndims(first(result)) - 1)..., n]
         end
 
         for _ ∈ 1:steps_per_save
-            t += _dt
-            step!(alg, t, _dt, u, prob, rng, args...)
+            t += dt
+            step!(iter, t, dt)
             _next!(p)
         end
-        map(copy!, slice, u)
+        map(copy!, slice, iter.u)
         ts[n+1] = t
     end
-    _finish!(p, progress)
+    #_finish!(p, progress)
 
-    ts[begin+1-save_start:end], result
+    ts[begin+1-save_start:end], iter.result
 end

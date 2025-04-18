@@ -50,8 +50,24 @@ function sample_noise!(noise, rng)
     end
 end
 
+function get_fft_plans(u, ::GrossPitaevskiiProblem{N,M}) where {N,M}
+    ftdims = ntuple(identity, N)
+    plan = plan_fft(first(u), ftdims)
+    iplan = inv(plan)
+    plan, iplan
+end
+
 function perform_ft!(dest, plan, src)
     for (_dest, _src) in zip(dest, src)
         mul!(_dest, plan, _src)
     end
 end
+
+_Progress(::Nothing, n; kwargs...) = Progress(n; kwargs...)
+_Progress(p, n; kwargs...) = p
+
+_next!(::Nothing) = nothing
+_next!(p) = next!(p)
+
+_finish!(p, ::Nothing) = finish!(p)
+_finish!(p, progress) = nothing
