@@ -1,7 +1,7 @@
 module GeneralizedGrossPitaevskii
 
 using KernelAbstractions, FFTW, LinearAlgebra, Random, ProgressMeter, CommonSolve
-import CommonSolve: solve, step!
+import CommonSolve: solve
 export solve
 
 using Reexport

@@ -41,7 +41,7 @@ function CommonSolve.solve!(iter::FixedTimeSteppingIterator)
 
         for _ ∈ 1:steps_per_save
             t += dt
-            step!(iter, t, dt)
+            CommonSolve.step!(iter, t, dt)
             _next!(p)
         end
         map(copy!, slice, iter.u)

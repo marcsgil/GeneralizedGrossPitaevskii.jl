@@ -18,18 +18,18 @@
         prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param)
 
         tspan = (0, nsaves * dt)
-        for alg ∈ (StrangSplitting(), )
-            ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
-            good_sol = kerr_propagation(u0[1], rs, rs, ts, nsaves; g=-g)
-            @test sol[1] ≈ good_sol
+        alg = StrangSplitting()
 
-            for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
-                new_dispersion(args...) = type(dispersion(args...))
-                new_nonlinearity(args...) = type(nonlinearity(args...))
-                prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, param)
-                ts, sol = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
-                @test sol[1] ≈ good_sol
-            end
+        ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
+        good_sol = kerr_propagation(u0[1], rs, rs, ts, nsaves; g=-g)
+        @test sol[1] ≈ good_sol
+
+        for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
+            new_dispersion(args...) = type(dispersion(args...))
+            new_nonlinearity(args...) = type(nonlinearity(args...))
+            prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, param)
+            ts, sol = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
+            @test sol[1] ≈ good_sol
         end
     end
 end

@@ -41,14 +41,14 @@
     dt = 1f-1
     tspan = (0f0, 100f0)
 
-    for alg ∈ (StrangSplitting(),)
-        ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
+    alg = StrangSplitting()
 
-        nx = abs2.(last(sol))[N÷2, N÷2, end]
-        nc = abs2.(first(sol))[N÷2, N÷2, end]
+    ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
-        @test abs(abs2(Ωr - (δx + im * γx / 2 - g * nx) * (δc + im * γc / 2) / Ωr) * nx / abs2(A) - 1) < 3e-2
+    nx = abs2.(last(sol))[N÷2, N÷2, end]
+    nc = abs2.(first(sol))[N÷2, N÷2, end]
 
-        @test abs(abs2(δx + im * γx / 2 - g * nx) * nx / Ωr^2 / nc - 1) < 3e-2
-    end
+    @test abs(abs2(Ωr - (δx + im * γx / 2 - g * nx) * (δc + im * γc / 2) / Ωr) * nx / abs2(A) - 1) < 3e-2
+
+    @test abs(abs2(δx + im * γx / 2 - g * nx) * nx / Ωr^2 / nc - 1) < 3e-2
 end

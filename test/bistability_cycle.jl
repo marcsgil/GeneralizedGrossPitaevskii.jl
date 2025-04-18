@@ -1,5 +1,3 @@
-using GeneralizedGrossPitaevskii
-
 @testset "Bistability Cycle" begin
     ω₀ = 1483.0f0
     g = 0.01f0
@@ -42,30 +40,27 @@ using GeneralizedGrossPitaevskii
     param = (; tmax, Imax, width, ωₚ, ω₀, kz, γ, g, L)
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
+    alg = StrangSplitting()
 
-    for alg ∈ (StrangSplitting(),)
-        ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
+    ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false)
 
-        Is = I.(ts, tmax, Imax)
+    Is = I.(ts, tmax, Imax)
 
-        error = similar(Is)
+    error = similar(Is)
 
-        for (n, slice) ∈ enumerate(eachslice(sol[1], dims=ndims(sol[1])))
-            Is_pred = bistability_curve(maximum(abs2, slice), δ, g, γ)
-            error[n] = abs(Is_pred - Is[n])
-        end
+    for (n, slice) ∈ enumerate(eachslice(sol[1], dims=ndims(sol[1])))
+        Is_pred = bistability_curve(maximum(abs2, slice), δ, g, γ)
+        error[n] = abs(Is_pred - Is[n])
+    end
 
-        @test sum(error[140:400]) / length(Is) ≤ 3e-3
+    @test sum(error[140:400]) / length(Is) ≤ 3e-3
 
-        for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1})
-            for pump_type ∈ (identity, SVector)
-                new_dispersion(args...) = type(dispersion(args...))
-                new_nonlinearity(args...) = type′(nonlinearity(args...))
-                new_pump(args...) = pump_type(pump(args...))
-                prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
-                ts, sol2 = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
-                @test sol2[1] ≈ sol[1]
-            end
-        end
+    for type ∈ (identity, SVector, SMatrix{1,1}), type′ ∈ (identity, SVector, SMatrix{1,1}), pump_type ∈ (identity, SVector)
+        new_dispersion(args...) = type(dispersion(args...))
+        new_nonlinearity(args...) = type′(nonlinearity(args...))
+        new_pump(args...) = pump_type(pump(args...))
+        prob2 = GrossPitaevskiiProblem(u0, lengths; dispersion=new_dispersion, nonlinearity=new_nonlinearity, pump, param)
+        ts, sol2 = solve(prob2, alg, tspan; nsaves, dt, show_progress=false)
+        @test sol2[1] ≈ sol[1]
     end
 end
