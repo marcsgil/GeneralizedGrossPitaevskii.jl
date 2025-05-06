@@ -43,9 +43,9 @@ end
 
 _randn!(::Nothing, x) = randn!(x)
 _randn!(rng, x) = randn!(rng, x)
-sample_noise!(::AdditiveIdentity, rng) = additiveIdentity
-function sample_noise!(noise, rng)
-    for x ∈ noise
+sample_noise!(::AdditiveIdentity, args...) = additiveIdentity
+function sample_noise!(::Any, prototype, rng)
+    for x ∈ prototype
         _randn!(rng, x)
     end
 end

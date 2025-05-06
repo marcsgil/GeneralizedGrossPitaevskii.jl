@@ -1,6 +1,6 @@
 struct StrangSplitting <: FixedTimeSteppingAlgorithm end
 
-struct StrangSplittingIterator{PROB,T,PROG1,PROG2,R,U,D,V,PB,PL,IPL,K,RNG} <:FixedTimeSteppingIterator
+struct StrangSplittingIterator{PROB,T,PROG1,PROG2,R,U,D,V,PB,PL,IPL,K,RNG,DG,RG} <: FixedTimeSteppingIterator
     prob::PROB
     dt::T
     ts::Vector{T}
@@ -19,6 +19,8 @@ struct StrangSplittingIterator{PROB,T,PROG1,PROG2,R,U,D,V,PB,PL,IPL,K,RNG} <:Fix
     iplan::IPL
     kernel!::K
     rng::RNG
+    direct_grid::DG
+    reciprocal_grid::RG
 end
 
 function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
@@ -40,8 +42,10 @@ function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
     u = copy.(prob.u0)
     ft_buffer = similar.(u)
 
-    exp_Ddt = get_exponential(prob.dispersion, prob.u0, reciprocal_grid(prob), prob.param, dt)
-    exp_Vdt = get_exponential(prob.potential, prob.u0, direct_grid(prob), prob.param, dt / 2)
+    rg = reciprocal_grid(prob)
+    dg = direct_grid(prob)
+    exp_Ddt = get_exponential(prob.dispersion, prob.u0, rg, prob.param, dt)
+    exp_Vdt = get_exponential(prob.potential, prob.u0, dg, prob.param, dt / 2)
 
     buffer_next = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, dt)
     buffer_now = get_pump_buffer(prob.pump, u, prob.lengths, prob.param, dt)
@@ -53,22 +57,24 @@ function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
     kernel! = muladd_kernel!(backend, workgroup_size...)
 
     StrangSplittingIterator(prob, dt, ts, steps_per_save, save_start, _progress, progress, result, u, ft_buffer, exp_Ddt, exp_Vdt,
-        buffer_next, buffer_now, plan, iplan, kernel!, rng)
+        buffer_next, buffer_now, plan, iplan, kernel!, rng, dg, rg)
 end
 
 function diffusion_step!(iter)
+    prob = iter.prob
+    sample_noise!(prob.momentum_noise_func, prob.noise_prototype, iter.rng)
     perform_ft!(iter.ft_buffer, iter.plan, iter.u)
     iter.kernel!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, false, additiveIdentity,
-        additiveIdentity, additiveIdentity, nothing; ndrange=size(first(iter.ft_buffer)))
+        prob.position_noise_func, prob.noise_prototype, prob.param, iter.reciprocal_grid; ndrange=size(first(iter.ft_buffer)))
     perform_ft!(iter.u, iter.iplan, iter.ft_buffer)
 end
 
 function potential_pump_step!(t, dt, iter)
     prob = iter.prob
-    sample_noise!(prob.noise_prototype, iter.rng)
+    sample_noise!(prob.position_noise_func, prob.noise_prototype, iter.rng)
     evaluate_pump!(prob, iter.pump_buffer_next, iter.pump_buffer_now, t)
     iter.kernel!(iter.u, iter.exp_Vdt, iter.pump_buffer_next, iter.pump_buffer_now, dt,
-        prob.nonlinearity, prob.noise_func, prob.noise_prototype, prob.param; ndrange=size(first(iter.u)))
+        prob.nonlinearity, prob.position_noise_func, prob.noise_prototype, prob.param, iter.direct_grid; ndrange=size(first(iter.u)))
 end
 
 function step!(iter::StrangSplittingIterator, t, dt)

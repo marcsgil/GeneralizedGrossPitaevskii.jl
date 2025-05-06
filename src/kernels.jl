@@ -34,11 +34,12 @@ function build_field_at(ξ, K)
     end)
 end
 
-@kernel function muladd_kernel!(dest::NTuple{N}, exp_δt, F_next, F_now, δt, nonlinearity, noise_func, ξ, param) where {N}
+@kernel function muladd_kernel!(dest::NTuple{N}, exp_δt, F_next, F_now, δt, nonlinearity, noise_func, ξ, param, grid) where {N}
     K = @index(Global, NTuple)
 
     fields = build_field_at(dest, K)
-    noise = _mul(-im * √δt, noise_func(fields, param), build_field_at(ξ, K))
+    point = build_field_at(grid, K)
+    noise = _mul(-im * √δt, noise_func(fields, point, param), build_field_at(ξ, K))
 
     exp_δt_val = _mul(_cis(_mul(-δt, nonlinearity(fields, param))), _getindex(exp_δt, K))
     Fδt_next_val = _mul(δt / 2, _getindex(F_next, K))

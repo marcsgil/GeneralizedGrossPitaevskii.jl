@@ -24,7 +24,7 @@ The fields are normalized such that
         -im * param.γ / 2 + param.ħ * sum(abs2, ks) / 2param.m - param.δ₀
     end
 
-    function noise_func(ψ, param)
+    function position_noise_func(ψ, r, param)
         √(param.γ / 2 / param.δL)
     end
 
@@ -81,7 +81,7 @@ The fields are normalized such that
     u0 = (zeros(ComplexF32, N, 10^4),)
     noise_prototype = similar.(u0)
 
-    prob = GrossPitaevskiiProblem(u0, lengths; dispersion, param, noise_func, noise_prototype)
+    prob = GrossPitaevskiiProblem(u0, lengths; dispersion, param, position_noise_func, noise_prototype)
     tspan = (0, 200.0f0)
     nsaves = 1
     alg = StrangSplitting()
