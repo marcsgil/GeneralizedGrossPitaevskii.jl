@@ -11,29 +11,29 @@ exciton-polariton condensates, and other nonlinear wave phenomena.
 
 The equation to be solved is of the form:
 
-`` i ∂u(r, t)/∂t = D(-i∇)u + V(r)u + G(u)u + i F(r, t) + η₁(ψ, r) ξ₁ + + η₂(ψ, -i∇) ξ₂``
+`` i ∂u(r, t)/∂t = D(-i∇)u + V(r)u + G(u)u + i F(r, t) + η₁(u, r) ξ₁ + + η₂(u, -i∇) ξ₂``
 
 # Arguments
 - `u0::Tuple`: Initial conditions for the fields. This should be a tuple of arrays, where each array 
   represents a field in the simulation. The fields should have the same shape.
 - `lengths::Tuple`: Physical dimensions of the simulation domain.
-- `dispersion`: D(-i∇) in the above equation. Function defining energy dispersion term. Should have 
+- `dispersion`: D(-i∇) in the above equation. Should have 
   the signature `dispersion(k, param)`, where `k` is a tuple representing a point in momentum space 
   and `param` are additional parameters.
 - `potential`: V(r) in the above equation. Spatial potential function. Should have the signature 
   `potential(r, param)`, where `r` is a tuple representing a point in direct space and `param` 
   are additional parameters.
 - `nonlinearity`: G(u) in the above equation. Function defining nonlinear interaction terms. Should have 
-  the signature `nonlinearity(ψ, param)`, where `ψ` is a tuple representing the fields at a point 
+  the signature `nonlinearity(u, param)`, where `u` is a tuple representing the fields at a point 
   in direct space and `param` are additional parameters.
 - `pump`: F(r, t) in the above equation. Function defining pump/drive terms, may be time-dependent. Should have 
   the signature `pump(r, param, t)`, where `r` is a tuple representing a point in direct space, `param` 
   are additional parameters, and `t` is time.
-- `position_noise_func`: η₁(ψ, r) in the above equation. Function defining stochastic terms in position. Should have the signature 
-  `noise_func(ψ, r param)`, where `ψ` is a tuple representing the fields at a point in direct space `r` and 
+- `position_noise_func`: η₁(u, r) in the above equation. Function defining stochastic terms in position. Should have the signature 
+  `noise_func(u, r param)`, where `u` is a tuple representing the fields at a point in direct space `r` and 
   `param` are additional parameters.
-- `momentum_noise_func`: η₂(ψ, -i∇) in the above equation. Function defining stochastic terms in momentum. Should have the signature 
-  `noise_func(ψ, k param)`, where `ψ` is a tuple representing the fields at a point in reciprocal space `k` and 
+- `momentum_noise_func`: η₂(u, -i∇) in the above equation. Function defining stochastic terms in momentum. Should have the signature 
+  `noise_func(u, k param)`, where `u` is a tuple representing the fields at a point in reciprocal space `k` and 
   `param` are additional parameters. (Untested)
 - `noise_prototype`: ξ₁ and ξ₂ in the above equation. Prototype for noise terms. When specified, this should be a tuple 
   of arrays with the correct element type and shape for the noise terms. We will call `randn!(rng, noise_prototype)` 
@@ -84,7 +84,7 @@ function dispersion(k, param)
     @SMatrix [Dcc Dxc; Dxc Dxx]
 end
 
-nonlinearity(ψ, param) = @SVector [0, param.g * abs2(ψ[2])]
+nonlinearity(u, param) = @SVector [0, param.g * abs2(u[2])]
 
 function pump(r, param, t)
     SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0.0)
@@ -132,7 +132,7 @@ function direct_grid(prob::GrossPitaevskiiProblem)
   map(direct_grid, prob.lengths, size(first(prob.u0)))
 end
 
-reciprocal_grid(L, N) = fftfreq(N, oftype(L, 2π) * N / L)
+reciprocal_grid(L, N) = fftfreq(N, oftype(N / L, 2π) * N / L)
 
 function reciprocal_grid(prob::GrossPitaevskiiProblem{N}) where {N}
   map(reciprocal_grid, prob.lengths, size(first(prob.u0)))

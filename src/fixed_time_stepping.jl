@@ -12,10 +12,11 @@ It returns a Tuple containing a vector of time points `ts` (only the first entry
 the number of steps per save `steps_per_save` and the new time step `_dt`.
 """
 function resolve_fixed_timestepping(dt, tspan, nsaves)
-    ts = Vector{typeof(dt)}(undef, nsaves + 1)
-    ts[1] = tspan[1]
+    T = promote_type(typeof(dt), typeof(first(tspan)), typeof(last(tspan)))
+    ts = Vector{T}(undef, nsaves + 1)
+    ts[1] = first(tspan)
 
-    ΔT = (tspan[2] - tspan[1]) / nsaves
+    ΔT = T(last(tspan) - first(tspan)) / nsaves
     steps_per_save = round(Int, ΔT / dt, RoundUp)
     _dt = ΔT / steps_per_save
 
@@ -61,6 +62,19 @@ end
     save_start=true,
     workgroup_size=(),
     rng=nothing)
+
+This function solves the given `prob` using the algorithm `alg` over the time span `tspan`.
+
+It uses a fixed time step `dt` and saves the solution `nsaves` times during the simulation.
+
+The `show_progress` argument controls whether a progress bar is shown, and `progress` can be used to provide a custom progress bar from `ProgressMeter.jl`.
+
+The `save_start` argument indicates whether the initial condition should be saved. 
+If `true`, the initial condition is saved as the first entry in the result, and the size of the time dimension of the result is `nsaves + save_start`.
+
+The `workgroup_size` argument can be used to specify the workgroup size for the kernel functions.
+    
+The `rng` argument can be used to provide a random number generator for the simulation.
 """
 function solve(prob::GrossPitaevskiiProblem, args...; kwargs...)
     solve!(init(prob, args...; kwargs...))

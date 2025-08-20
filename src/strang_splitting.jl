@@ -1,3 +1,9 @@
+"""
+    StrangSplitting()
+
+The Strang splitting algorithm for solving the Generalized Gross-Pitaevskii equation.
+It is a fixed time-stepping algorithm that alternates between diffusion and potential/pump/nonlinear steps.
+"""
 struct StrangSplitting <: FixedTimeSteppingAlgorithm end
 
 struct StrangSplittingIterator{PROB,T,PROG1,PROG2,R,U,D,V,PB,PL,IPL,K,RNG,DG,RG} <: FixedTimeSteppingIterator

@@ -1,0 +1,5 @@
+```@docs
+GrossPitaevskiiProblem
+solve
+StrangSplitting
+```

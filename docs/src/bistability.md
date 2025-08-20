@@ -1,3 +1,8 @@
+```@meta
+EditURL = "../../examples/bistability.jl"
+```
+
+````@example bistability
 using GeneralizedGrossPitaevskii, CairoMakie
 
 function bistability_curve(n, δ, g, γ)
@@ -20,7 +25,7 @@ with_theme(theme_latexfonts()) do
     lines!(ax, Is_theo, ns_theo, color=:blue, linewidth=4, label="Theoretical")
     fig
 end
-##
+#
 function dispersion(ks, param)
     -im * param.γ / 2 + param.ω₀ * sum(abs2, ks) / 2param.kz^2 - param.δ
 end
@@ -44,7 +49,7 @@ xs = range(; start=-L / 2, step=L / N, length=N)
 
 Imax = maximum(Is_theo)
 width = 50.0
-##
+#
 dt = 0.1
 nsaves = 512
 alg = StrangSplitting()
@@ -57,7 +62,7 @@ prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param
 
 ts, sol = solve(prob, alg, tspan; dt, nsaves)
 heatmap(abs2.(sol[1]))
-##
+#
 Is = I.(ts, tmax, Imax)
 color = [n ≤ length(ts) / 2 ? :red : :black for n ∈ eachindex(ts)]
 
@@ -69,3 +74,9 @@ with_theme(theme_latexfonts()) do
     axislegend(ax, position=:rb)
     fig
 end
+````
+
+---
+
+*This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
+
