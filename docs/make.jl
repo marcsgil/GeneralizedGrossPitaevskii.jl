@@ -23,8 +23,10 @@ makedocs(;
             "Bistability" => "bistability.md",
             "Exciton Polariton" => "exciton_polariton.md",
         ],
-        "Theory" => [],
-        "How-to Guides" => [],
+        "Technical Explanations" => [
+            "General Overview" => "general_overview.md",
+            "Multicomponent Systems" => "multicomponent.md",
+        ],
         "API" => "api.md",
         "References" => "references.md",],
     warnonly=true,
