@@ -54,15 +54,15 @@ with_theme(theme_latexfonts()) do
     fig
 end
 ##
-u0 = (randn(ComplexF64, N, 4096) / 2dx,);
+u0 = (randn(ComplexF64, N, 512) / 2dx,);
 noise_prototype = similar.(u0);
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param, noise_prototype, position_noise_func)
 ts, sol = solve(prob, alg, tspan; nsaves=1, dt, save_start=false)
 
-ft_sol = fftshift(fft(sol[1], 1), 1)
+ft_sol = fftshift(fft(sol[1], 1), 1) / N
 ks = fftshift(fftfreq(N, 2π / dx))
 
-nks = dropdims(mean(abs2, ft_sol; dims=2), dims=(2, 3)) .- N / 2dx
+nks = dropdims(mean(abs2, ft_sol; dims=2), dims=(2, 3)) .- 1 / 2L
 nks[N÷2+1] = NaN
 
 with_theme(theme_latexfonts()) do
@@ -72,5 +72,38 @@ with_theme(theme_latexfonts()) do
     scatter!(ax1, [A^2], [n]; color=:red, markersize=10, label="Truncated Wigner")
     ax2 = Axis(fig[1, 2]; xlabel="k (μm⁻¹)", ylabel="n(k)")
     lines!(ax2, ks, nks, linewidth=2)
+    fig
+end
+##
+function f(x, y, δ, commutator)
+    abs2(x) * abs2(y) - (1 + δ) * commutator / 2 * (abs2(x) + abs2(y) - commutator / 2)
+end
+
+function G2(sol, commutator)
+    result = similar(sol, real(eltype(sol)), (size(sol, 1), size(sol, 1)))
+
+    for n ∈ axes(result, 2), m in axes(result, 1)
+        result[m, n] = mapreduce((x, y) -> f(x, y, m == n, commutator), +,
+            view(sol, m, :), view(sol, n, :)) / size(sol, 2)
+    end
+
+    result
+end
+
+ft_sol
+
+
+G2k = G2(ft_sol, 1 / L)
+#G2k[N÷2+1, N÷2+1] = NaN
+nks * nks'
+g2k = G2k ./ (nks * nks')
+
+with_theme(theme_latexfonts()) do
+    fig = Figure(; fontsize=16, size=(500, 400))
+    ax = Axis(fig[1, 1])
+    xlims!(ax, -0.8, 0.8)
+    ylims!(ax, -0.8, 0.8)
+    hm = heatmap!(ax, ks, ks, g2k, colorrange=(0, 3))
+    Colorbar(fig[1, 2], hm)
     fig
 end
