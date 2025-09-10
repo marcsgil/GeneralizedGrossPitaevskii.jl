@@ -1,17 +1,17 @@
 @testset "Scalar Kerr Propagation" begin
     for n ∈ 1:5
         N = 64
-        L = 10.0f0
+        L = 10
         lengths = (L, L)
         ΔL = L / N
-        dt = 0.01f0 * rand(Float32)
+        dt = 0.002 * rand()
         nsaves = rand(50:200)
-        g = 1.0f0 * randn(Float32)
+        g = randn()
 
         rs = range(; start=-L / 2, length=N, step=ΔL)
         u0 = (lg(rs, rs, l=rand(-5:5)) + lg(rs, rs, l=rand(-5:5)),)
 
-        ts = 0:dt:nsaves * dt
+        ts = 0:dt:nsaves*dt
         tspan = extrema(ts)
 
         sl_sol = kerr_propagation(u0[1], rs, rs, ts, nsaves; g=-g)

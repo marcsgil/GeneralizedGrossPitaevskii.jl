@@ -1,10 +1,10 @@
 @testset "Bistability Cycle" begin
-    ω₀ = 1483.0f0
-    g = 0.01f0
-    δ = 0.3f0
+    ω₀ = 1483
+    g = 0.01
+    δ = 0.3
     ωₚ = ω₀ + δ
-    kz = 27.0f0
-    γ = 0.1f0
+    kz = 27
+    γ = 0.1
 
     function dispersion(ks, param)
         -im * param.γ / 2 + param.ω₀ * (1 + sum(abs2, ks) / 2param.kz^2) - param.ωₚ
@@ -34,16 +34,16 @@
     pump2(x, param, t) = SVector(pump(x, param, t))
     pump3(x, param, t) = SMatrix{1,1}(pump(x, param, t))
 
-    L = 256.0f0
+    L = 256
     lengths = (L,)
-    u0 = (zeros(ComplexF32, ntuple(n -> 256, length(lengths))),)
+    u0 = (zeros(ComplexF64, ntuple(n -> 256, length(lengths))),)
 
-    Imax = 0.6f0
-    width = 50.0f0
+    Imax = 0.6
+    width = 50
 
-    dt = 0.05f0
+    dt = 0.05
     nsaves = 512
-    tspan = (0, 3300f0)
+    tspan = (0, 3300)
     tmax = tspan[end]
 
     param = (; tmax, Imax, width, ωₚ, ω₀, kz, γ, g, L)

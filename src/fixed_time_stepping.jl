@@ -12,7 +12,7 @@ It returns a Tuple containing a vector of time points `ts` (only the first entry
 the number of steps per save `steps_per_save` and the new time step `_dt`.
 """
 function resolve_fixed_timestepping(dt, tspan, nsaves)
-    T = promote_type(typeof(dt), typeof(first(tspan)), typeof(last(tspan)))
+    T = float(promote_type(typeof(dt), typeof(first(tspan)), typeof(last(tspan))))
     ts = Vector{T}(undef, nsaves + 1)
     ts[1] = first(tspan)
 

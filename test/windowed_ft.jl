@@ -61,28 +61,28 @@ The fields are normalized such that
     window(x, (x0, w)) = exp(-(x - x0)^2 / w^2)
 
     # Space parameters
-    L = 20.0f0
+    L = 20
     lengths = (L,)
     N = 64
     δL = L / N
     rs = range(; start=-L / 2, step=L / N, length=N)
 
     # Polariton parameters
-    ħ = 0.6582f0 #meV.ps
-    γ = 0.1f0 / ħ
-    m = ħ^2 / 2.5f0
+    ħ = 0.6582 #meV.ps
+    γ = 0.1 / ħ
+    m = ħ^2 / 2.5
     δ₀ = 0.49 / ħ
 
-    dt = 4.0f0
+    dt = 4
 
     # Full parameter tuple
     param = (; δ₀, m, γ, ħ, L, δL, N, dt)
 
-    u0 = (zeros(ComplexF32, N, 10^4),)
+    u0 = (zeros(ComplexF64, N, 10^4),)
     noise_prototype = similar.(u0)
 
     prob = GrossPitaevskiiProblem(u0, lengths; dispersion, param, position_noise_func, noise_prototype)
-    tspan = (0, 200.0f0)
+    tspan = (0, 200)
     nsaves = 1
     alg = StrangSplitting()
     ts, _sol = GeneralizedGrossPitaevskii.solve(prob, alg, tspan; nsaves, dt, save_start=false, show_progress=false, rng=Random.MersenneTwister(1234))
