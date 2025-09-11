@@ -36,7 +36,8 @@ Here we define the numerical values of some of the parameters
 m = 1 / 3
 g = 0.01
 δ = 0.3
-γ = 0.1
+γ = 0.1;
+nothing #hide
 ````
 
 It can be shown that, in a steady and homogeneous state, the intensity I = |F|^2
@@ -45,7 +46,8 @@ necessary to support the fluid at a given density n is given by the following fu
 ````@example bistability
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
-end
+end;
+nothing #hide
 ````
 
 Here, this theoretical curve is displayed:
@@ -76,7 +78,8 @@ As these are constants, we also include the detuning and decay terms.
 ````@example bistability
 function dispersion(ks, param)
     param.ħ * sum(abs2, ks) / 2param.m - param.δ - im * param.γ / 2
-end
+end;
+nothing #hide
 ````
 
 Next, we define the nonlinear term.
@@ -93,7 +96,8 @@ and a maximum `Imax` at `t=tmax`.
 function I(t, tmax, Imax)
     val = -Imax * t * (t - tmax) * 4 / tmax^2
     val < 0 ? zero(val) : val
-end
+end;
+nothing #hide
 ````
 
 We also define the complete pump profile, which includes both the spatial and temporal components.
@@ -102,7 +106,8 @@ The spatial profile is a Gaussian centered in the middle of the system.
 ````@example bistability
 function pump(x, param, t)
     exp(-sum(abs2, x .- param.L / 2) / param.width^2) * √I(t, param.tmax, param.Imax)
-end
+end;
+nothing #hide
 ````
 
 We now choose the numerical values of the pump constants:
@@ -110,7 +115,8 @@ We now choose the numerical values of the pump constants:
 ````@example bistability
 tmax = 4000
 Imax = maximum(Is_theo)
-width = 50.0
+width = 50;
+nothing #hide
 ````
 
 We now define the spatial grid used in the simulation:
@@ -124,34 +130,39 @@ N = 128
 The initial condition is a vector of zeros, corresponding to an initially empty cavity.
 
 ````@example bistability
-u0 = (zeros(ComplexF64, N),)
+u0 = (zeros(ComplexF64, N),);
+nothing #hide
 ````
 
 Now the time parameters are defined:
 
 ````@example bistability
 dt = 0.1
-tspan = (0, tmax)
+tspan = (0, tmax);
+nothing #hide
 ````
 
 Also, we define the number of saves and the algorithm to use.
 
 ````@example bistability
 nsaves = 512
-alg = StrangSplitting()
+alg = StrangSplitting();
+nothing #hide
 ````
 
 Finally, we collect all the necessary parameters in a named tuple
 
 ````@example bistability
-param = (; tmax, Imax, width, δ, ħ, m, γ, g, L)
+param = (; tmax, Imax, width, δ, ħ, m, γ, g, L);
+nothing #hide
 ````
 
 Now, we define the problem and obtain the solution:
 
 ````@example bistability
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
-ts, sol = solve(prob, alg, tspan; dt, nsaves)
+ts, sol = solve(prob, alg, tspan; dt, nsaves);
+nothing #hide
 ````
 
 In the following plot, we can see the evolution of the density over time.

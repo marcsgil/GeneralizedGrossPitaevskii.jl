@@ -22,10 +22,15 @@ makedocs(;
             "Damped Free Propagation" => "free_propagation_damping.md",
             "Bistability" => "bistability.md",
             "Exciton Polariton" => "exciton_polariton.md",
+            "Truncated Wigner method" => "truncated_wigner.md",
         ],
-        "Technical Explanations" => [
+        "Technical Documentation" => [
             "General Overview" => "general_overview.md",
-            "Multicomponent Systems" => "multicomponent.md",
+            "Spatial Grid" => "spatial_grid.md",
+            "Multicomponent Systems" => "multicomponent_systems.md",
+            "Stochastic Simulations" => "stochastic_simulations.md",
+            "Algorithm Implementation" => "algorithm_implementation.md",
+            "GPU Support" => "gpu.md",
         ],
         "API" => "api.md",
         "References" => "references.md",],

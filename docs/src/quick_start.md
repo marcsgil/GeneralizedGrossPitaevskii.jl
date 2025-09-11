@@ -23,13 +23,15 @@ We will simulate a 2D system with a grid with N x N points with size of L x L.
 
 ````@example quick_start
 N = 128
-L = 8
+L = 8;
+nothing #hide
 ````
 
 Now we define a lengths parameter:
 
 ````@example quick_start
-lengths = (L, L)
+lengths = (L, L);
+nothing #hide
 ````
 
 This is a tuple that defines the physical dimensions of the simulation domain.
@@ -40,13 +42,15 @@ Next, we define the initial condition of the wavefunction.
 This is the step size of the grid.
 
 ````@example quick_start
-ΔL = L / N
+ΔL = L / N;
+nothing #hide
 ````
 
 This is used to create a range of points in the grid.
 
 ````@example quick_start
-rs = StepRangeLen(0, ΔL, N)
+rs = StepRangeLen(0, ΔL, N);
+nothing #hide
 ````
 
 Observe that this package always assume that the grid starts is of the from 0, ΔL, 2ΔL, ..., (N-1)ΔL.
@@ -55,7 +59,8 @@ This is easily created with the `StepRangeLen` function.
 We can use this grid to create an initial condition for the wavefunction:
 
 ````@example quick_start
-initial_condition = [exp(-(x - L / 2)^2 - (y - L / 2)^2) for x in rs, y in rs]
+initial_condition = [exp(-(x - L / 2)^2 - (y - L / 2)^2) for x in rs, y in rs];
+nothing #hide
 ````
 
 This creates a 2D array representing a Gaussian wavefunction centered at the middle of the grid.
@@ -69,7 +74,8 @@ visualize(abs2.(initial_condition))
 As this package is able to handle systems with multiple wavefunctions, we need to wrap the initial condition in a tuple with one element:
 
 ````@example quick_start
-u0 = (initial_condition,)
+u0 = (initial_condition,);
+nothing #hide
 ````
 
 This indicates that we have one wavefunction in our simulation.
@@ -79,7 +85,8 @@ As this is a free propagation problem, we the wavefunction satisfies the Schröd
 In Fourier space, this corresponds to a dispersion relation D(k) = |k|² / 2, which we now define:
 
 ````@example quick_start
-dispersion(ks, param) = sum(abs2, ks) / 2
+dispersion(ks, param) = sum(abs2, ks) / 2;
+nothing #hide
 ````
 
 The extra argument `param` is a placeholder for additional parameters, such as mass, that may be needed in more complex problems,
@@ -88,7 +95,8 @@ but is not used here.
 Now we can create the problem instance:
 
 ````@example quick_start
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion);
+nothing #hide
 ````
 
 This encapsulates all the necessary components to define the Gross-Pitaevskii equation.
@@ -98,7 +106,8 @@ We just need to specify some additional parameters:
 This is the algorithm we will use to solve the problem:
 
 ````@example quick_start
-alg = StrangSplitting()
+alg = StrangSplitting();
+nothing #hide
 ````
 
 Right now, this is the only algorithm implemented in this package, so there isn't much choice.
@@ -106,13 +115,15 @@ Right now, this is the only algorithm implemented in this package, so there isn'
 This algorithm uses a fixed time step, which we can define:
 
 ````@example quick_start
-dt = 0.01
+dt = 0.01;
+nothing #hide
 ````
 
 Next, we define the time span of the simulation:
 
 ````@example quick_start
-tspan = (0, 1)
+tspan = (0, 1);
+nothing #hide
 ````
 
 This indicates that we want to simulate the system from time t=0 to t=1
@@ -120,13 +131,15 @@ This indicates that we want to simulate the system from time t=0 to t=1
 Now, we indicate how many times we want to save the solution during the simulation:
 
 ````@example quick_start
-nsaves = 64
+nsaves = 64;
+nothing #hide
 ````
 
 Finally, we can solve the problem:
 
 ````@example quick_start
-ts, sol = solve(prob, alg, tspan; nsaves, dt)
+ts, sol = solve(prob, alg, tspan; nsaves, dt);
+nothing #hide
 ````
 
 The `solve` function returns two values: the time points `ts` on which the solution was saved and the solution `sol`.
@@ -149,21 +162,24 @@ To add this nonlinear term, we need to define a new function that takes the wave
 (only the g|u|² part. Check [`GrossPitaevskiiProblem`](@ref) for more information).
 
 ````@example quick_start
-nonlinearity(u, param) = param.g * abs2(u[1])
+nonlinearity(u, param) = param.g * abs2(u[1]);
+nothing #hide
 ````
 
 Here, we have used the `param` argument to pass the coupling constant `g`.
 We define this argument as a named tuple:
 
 ````@example quick_start
-param = (; g = -6)
+param = (; g = -6);
+nothing #hide
 ````
 
 The negative value of `g` indicates that we have a attractive nonlinearity, which will be clear in the visualization.
 Now we can create a new problem instance with the nonlinearity:
 
 ````@example quick_start
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param);
+nothing #hide
 ````
 
 We used the same initial condition, lengths, and dispersion as before, but now we have added the nonlinearity and the parameters.
@@ -171,7 +187,7 @@ We used the same initial condition, lengths, and dispersion as before, but now w
 Just as before, we can solve the problem and visualize the solution:
 
 ````@example quick_start
-ts, sol = solve(prob, alg, tspan; nsaves, dt)
+ts, sol = solve(prob, alg, tspan; nsaves, dt);
 
 save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4")
 ````

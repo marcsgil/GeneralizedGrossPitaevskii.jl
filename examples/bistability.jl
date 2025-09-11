@@ -27,14 +27,14 @@ using GeneralizedGrossPitaevskii, CairoMakie
 m = 1 / 3
 g = 0.01
 δ = 0.3
-γ = 0.1
+γ = 0.1;
 
 # It can be shown that, in a steady and homogeneous state, the intensity I = |F|^2 
 # necessary to support the fluid at a given density n is given by the following function:
 
 function bistability_curve(n, δ, g, γ)
     n * (γ^2 / 4 + (g * n - δ)^2)
-end
+end;
 
 # Here, this theoretical curve is displayed:
 
@@ -60,7 +60,7 @@ end
 # As these are constants, we also include the detuning and decay terms.
 function dispersion(ks, param)
     param.ħ * sum(abs2, ks) / 2param.m - param.δ - im * param.γ / 2
-end
+end;
 
 # Next, we define the nonlinear term. 
 nonlinearity(ψ, param) = param.g * abs2(ψ[1])
@@ -71,18 +71,18 @@ nonlinearity(ψ, param) = param.g * abs2(ψ[1])
 function I(t, tmax, Imax)
     val = -Imax * t * (t - tmax) * 4 / tmax^2
     val < 0 ? zero(val) : val
-end
+end;
 
 # We also define the complete pump profile, which includes both the spatial and temporal components.
 # The spatial profile is a Gaussian centered in the middle of the system.
 function pump(x, param, t)
     exp(-sum(abs2, x .- param.L / 2) / param.width^2) * √I(t, param.tmax, param.Imax)
-end
+end;
 
 # We now choose the numerical values of the pump constants:
 tmax = 4000
 Imax = maximum(Is_theo)
-width = 50.0
+width = 50;
 
 # We now define the spatial grid used in the simulation:
 L = 256
@@ -90,22 +90,22 @@ lengths = (L,)
 N = 128
 
 # The initial condition is a vector of zeros, corresponding to an initially empty cavity.
-u0 = (zeros(ComplexF64, N),)
+u0 = (zeros(ComplexF64, N),);
 
 # Now the time parameters are defined:
 dt = 0.1
-tspan = (0, tmax)
+tspan = (0, tmax);
 
 # Also, we define the number of saves and the algorithm to use.
 nsaves = 512
-alg = StrangSplitting()
+alg = StrangSplitting();
 
 # Finally, we collect all the necessary parameters in a named tuple
-param = (; tmax, Imax, width, δ, ħ, m, γ, g, L)
+param = (; tmax, Imax, width, δ, ħ, m, γ, g, L);
 
 # Now, we define the problem and obtain the solution:
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
-ts, sol = solve(prob, alg, tspan; dt, nsaves)
+ts, sol = solve(prob, alg, tspan; dt, nsaves);
 
 # In the following plot, we can see the evolution of the density over time.
 with_theme(theme_latexfonts()) do

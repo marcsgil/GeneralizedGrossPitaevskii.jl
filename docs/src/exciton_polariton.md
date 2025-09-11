@@ -129,7 +129,8 @@ Therefore, we can check the above relations using the densities at the center of
 
 ````@example exciton_polariton
 nx = abs2.(last(sol))[N÷2, N÷2, end]
-nc = abs2.(first(sol))[N÷2, N÷2, end]
+nc = abs2.(first(sol))[N÷2, N÷2, end];
+nothing #hide
 ````
 
 We can check that the relations are satisfied approximately.

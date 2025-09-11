@@ -22,13 +22,15 @@ lengths = (L, L)
 tspan = (0, 1)
 N = 128
 rs = StepRangeLen(0, L / N, N)
-u0 = (ComplexF64[exp(-(x - L / 2)^2 - (y - L / 2)^2) for x in rs, y in rs],)
+u0 = (ComplexF64[exp(-(x - L / 2)^2 - (y - L / 2)^2) for x in rs, y in rs],);
+nothing #hide
 ````
 
 Then, we define the dispersion relation with a damping term.
 
 ````@example free_propagation_damping
-dispersion(ks, param) = sum(abs2, ks) / 2 - im
+dispersion(ks, param) = sum(abs2, ks) / 2 - im;
+nothing #hide
 ````
 
 This corresponds to an equation of the form i ∂u(r, t)/∂t = -∇²u / 2 - i u, which includes a damping term due to the imaginary part.
@@ -36,7 +38,8 @@ This corresponds to an equation of the form i ∂u(r, t)/∂t = -∇²u / 2 - i 
 Now we can create the problem instance.
 
 ````@example free_propagation_damping
-prob = GrossPitaevskiiProblem(u0, lengths; dispersion)
+prob = GrossPitaevskiiProblem(u0, lengths; dispersion);
+nothing #hide
 ````
 
 Now, we define the solver parameters, get the solution and visualize the results.

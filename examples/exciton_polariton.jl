@@ -108,7 +108,7 @@ ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false);
 # Therefore, we can check the above relations using the densities at the center of the system at the final time.
 
 nx = abs2.(last(sol))[N÷2, N÷2, end]
-nc = abs2.(first(sol))[N÷2, N÷2, end]
+nc = abs2.(first(sol))[N÷2, N÷2, end];
 
 # We can check that the relations are satisfied approximately.
 
