@@ -148,7 +148,8 @@ Each element in this tuple is an array with one extra dimension then the initial
 We can use the `save_animation` function (which comes from StructuredLight and CairoMakie) to visualize the solution:
 
 ````@example quick_start
-save_animation(abs2.(sol[1]), "free_prop_example.mp4")
+save_animation(abs2.(sol[1]), "free_prop_example.mp4");
+nothing #hide
 ````
 
 ![](free_prop_example.mp4)
@@ -189,7 +190,8 @@ Just as before, we can solve the problem and visualize the solution:
 ````@example quick_start
 ts, sol = solve(prob, alg, tspan; nsaves, dt);
 
-save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4")
+save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4");
+nothing #hide
 ````
 
 The attractive nonlinearity will cause the wavefunction to collapse into a localized structure, which can be seen in the animation.

@@ -51,7 +51,8 @@ alg = StrangSplitting()
 
 ts, sol = solve(prob, alg, tspan; dt, nsaves)
 
-save_animation(abs2.(sol[1]), "free_prop_example_damp.mp4", share_colorrange=true)
+save_animation(abs2.(sol[1]), "free_prop_example_damp.mp4", share_colorrange=true);
+nothing #hide
 ````
 
 We can see that the wavefunction is damped over time, which is expected due to the damping term in the dispersion relation.
