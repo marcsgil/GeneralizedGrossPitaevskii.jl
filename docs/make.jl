@@ -5,7 +5,7 @@ repo = "https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl"
 
 for file ∈ readdir(joinpath(dir, "examples"), join=true)
     if endswith(file, ".jl")
-        Literate.markdown(file, joinpath(dir, "docs/src"); documenter=true, repo_root_url=joinpath(repo, "tree/master"))
+        Literate.markdown(file, joinpath(dir, "docs/src"); documenter=true, repo_root_url=joinpath(repo, "tree/main"))
     end
 end
 
@@ -39,5 +39,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/marcsgil/GeneralizedGrossPitaevskii.jl",
+    repo,
 )
