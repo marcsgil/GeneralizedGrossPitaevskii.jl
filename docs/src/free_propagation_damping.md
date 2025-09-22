@@ -4,7 +4,7 @@ EditURL = "../../examples/free_propagation_damping.jl"
 
 # Damped Free Propagation
 
-In this example, we will simulate a damped free propagation of a wavefunction using the Generalized Gross-Pitaevskii package.
+In this example, we will simulate a damped free propagation.
 We will define a simple 2D system with a Gaussian initial condition and a damping term
 in the dispersion relation to simulate the damping effect.
 

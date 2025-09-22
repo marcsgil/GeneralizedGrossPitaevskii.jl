@@ -15,7 +15,7 @@ This package unifies the simulation of diverse quantum fluid systems under a sin
 The package solves a generalized Gross-Pitaevskii equation:
 
 ```math
-i \frac{\partial u(r, t)}{\partial t} = D(-i\nabla)u + V(r)u + G(u)u + i F(r, t) + \eta_1(u, r) \xi_1 + \eta_2(u, -i\nabla) \xi_2
+i d u(r, t) = [D(-i\nabla)u + V(r)u + G(u)u + i F(r, t)]dt + \eta_1(u, r) dW_1 + \eta_2(-i\nabla u, k) dW_2
 ```
 
 This framework encompasses a vast range of quantum fluid phenomena, allowing researchers to concentrate on physics rather than numerical implementation details.

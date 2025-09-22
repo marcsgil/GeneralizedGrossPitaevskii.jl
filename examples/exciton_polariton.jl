@@ -5,7 +5,7 @@
 # The equations we want to solve are the following:
 
 # ```math
-# i \hbar \frac{\partial}{\partial t} \begin{pmatrix} \psi_c \\ \psi_x \end{pmatrix} = 
+# i \frac{\partial}{\partial t} \begin{pmatrix} \psi_c \\ \psi_x \end{pmatrix} = 
 # \begin{pmatrix} -\delta_c - i \gamma_c - \frac{\hbar^2 \nabla^2}{2m} & \Omega_r \\ 
 # \Omega_r & -\delta_x - i \gamma_x + g |\psi_x|^2 \end{pmatrix} 
 # \begin{pmatrix} \psi_c \\ \psi_x \end{pmatrix} 
@@ -23,7 +23,7 @@ using GeneralizedGrossPitaevskii
 
 # As we are modeling a two component system, there are some differences with respect to the single component case.
 # The main one is that, as the wavefunction now has two components, 
-# the terms in the equation (dispersion, nonlinearity, and pump) must be defined as matrices.
+# the terms in the equation (dispersion, nonlinearity, and pump) must be defined as arrays.
 # This has to be done using the [StaticArrays.jl](https://github.com/JuliaArrays/StaticArrays.jl) package,
 # which allows us to define small fixed-size arrays efficiently, and, most importantly,
 # allows us to use them in GPU kernels.

@@ -11,7 +11,9 @@ exciton-polariton condensates, and other nonlinear wave phenomena.
 
 The equation to be solved is of the form:
 
-`` i ∂u(r, t)/∂t = D(-i∇)u + V(r)u + G(u)u + i F(r, t) + η₁(u, r) ξ₁ + + η₂(u, -i∇) ξ₂``
+`` i du(r, t) = [D(-i∇)u + V(r)u + G(u)u + i F(r, t)]dt + η₁(u, r) dW₁ + η₂(-i∇u, k) dW₂ ``
+
+where:
 
 # Arguments
 - `u0::Tuple`: Initial conditions for the fields. This should be a tuple of arrays, where each array 

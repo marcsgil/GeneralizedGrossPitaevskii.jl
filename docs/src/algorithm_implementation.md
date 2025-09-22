@@ -1,15 +1,38 @@
 # Algorithm Implementation
 
-## Strang Splitting Method
+## Rationale for Split-Step Methods
 
-### Mathematical Foundation
+The generalized Gross-Pitaevskii equation contains terms that are naturally handled in different representations:
 
-### Order of Operations
+- **Dispersion term** ``D(-i\nabla)u``: Most efficiently computed in momentum space using FFTs
+- **Potential and nonlinearity terms** ``V(\mathbf{r})u + G(u)u``: Naturally computed in position space
+- **Pump and noise terms**: Applied in position space
 
-### Why Strang Splitting?
+A direct numerical solution would require expensive spatial derivatives for the dispersion term and complex implicit methods for the nonlinearity. Split-step methods solve this by:
 
-## Time Integration Details
+1. **Operator splitting**: Decompose the evolution into separate steps, each handled in its optimal representation
+2. **Analytical solutions**: Each substep can often be solved exactly (dispersion) or very efficiently (local terms)
+3. **Computational efficiency**: FFT-based dispersion steps are highly optimized and GPU-friendly
+4. **Flexibility**: Easy to add new terms without restructuring the entire algorithm
 
-### Fixed Time Stepping
+The **Strang splitting** scheme provides second-order accuracy by symmetrically arranging the substeps.
 
-## Unused Terms
+## Mathematical Formulation
+
+The time evolution is implemented using a split-step method with Strang splitting. A single step of size `dt` from time `t` to `t+dt` is given by
+
+```math
+    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t)dt/2) + F(t+dt/2)dt/2 -i \sqrt{dt/2} \eta_1 dW \\
+    \tilde{u} = e^{-iDdt}\tilde{u} -i \sqrt{dt} \eta_2 dW \\
+    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t+dt/2)dt/2) + F(t+dt)dt/2 -i \sqrt{dt/2} \eta_1 dW \\
+```
+
+In the above, `u` denotes the fields in real space, while `ũ` denotes the fields in Fourier space; `G` is the nonlinear term, `V` is the potential term, and `D` is the dispersion term. The terms `η₁` and `η₂` are the noise amplitudes for the real space and Fourier space evolutions, respectively, and `dW` is a Wiener increment, which is a normally distributed random variable with mean `0` and variance `1`. Each of the noise terms is independent.u
+
+We can see that it is divided into three parts:
+
+1. An evolution of `u` from time `t` to `t+dt / 2` performed in real space, without the dispersion term.
+
+2. An evolution of `ũ` from time `t` to `t+dt`, performed in Fourier space, without the nonlinear, potential and pump terms.
+
+3. An evolution of `u` from time `t+dt / 2` to `t+dt`, again performed in real space, without the dispersion term.

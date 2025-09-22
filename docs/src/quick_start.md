@@ -171,7 +171,7 @@ Here, we have used the `param` argument to pass the coupling constant `g`.
 We define this argument as a named tuple:
 
 ````@example quick_start
-param = (; g = -6);
+param = (; g=-6);
 nothing #hide
 ````
 
@@ -188,6 +188,7 @@ We used the same initial condition, lengths, and dispersion as before, but now w
 Just as before, we can solve the problem and visualize the solution:
 
 ````@example quick_start
+tspan = (0, 0.4)
 ts, sol = solve(prob, alg, tspan; nsaves, dt);
 
 save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4");

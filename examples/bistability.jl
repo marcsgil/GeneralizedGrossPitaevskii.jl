@@ -1,7 +1,7 @@
 # # Bistability in the Polariton Condensate
 
-# This examples demonstrates the bistability phenomenon in a polariton condensate.
-# The mean field equations describing this systems may posess two stable solutions for certain parameters.
+# This example demonstrates the bistability phenomenon in a polariton condensate.
+# The mean field equations describing this system may possess two stable solutions for certain parameters.
 # They can be reached by varying the pump intensity, inducing a hysteresis loop.
 # Here, we show the theoretical bistability curve and compare it with the results from a numerical simulation.
 
@@ -63,7 +63,7 @@ function dispersion(ks, param)
 end;
 
 # Next, we define the nonlinear term. 
-nonlinearity(ψ, param) = param.g * abs2(ψ[1])
+nonlinearity(ψ, param) = param.g * abs2(ψ[1]);
 
 # Finally, we define the pump profile.
 # Here, we define the time-dependent pump intensity, which is a parabola that has zeros at t=0 and `t=2tmax`,

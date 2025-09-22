@@ -90,13 +90,14 @@ nonlinearity(u, param) = param.g * abs2(u[1]);
 
 # Here, we have used the `param` argument to pass the coupling constant `g`.
 # We define this argument as a named tuple:
-param = (; g = -6);
+param = (; g=-6);
 # The negative value of `g` indicates that we have a attractive nonlinearity, which will be clear in the visualization.
 # Now we can create a new problem instance with the nonlinearity:
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param);
 # We used the same initial condition, lengths, and dispersion as before, but now we have added the nonlinearity and the parameters.
 
 # Just as before, we can solve the problem and visualize the solution:
+tspan = (0, 0.4)
 ts, sol = solve(prob, alg, tspan; nsaves, dt);
 
 save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4");

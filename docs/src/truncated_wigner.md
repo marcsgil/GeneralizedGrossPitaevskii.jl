@@ -105,13 +105,12 @@ end
 ````
 
 We can see the density approaches a steady-state value, confirming our system reaches equilibrium.
-The result is noisy, but this is solved by simply increasing the number of stochastic trajectories.
 
 ## Inclusion of quantum noise
 
 Now we implement the full truncated Wigner method by including quantum noise.
 In this approach, we run many stochastic trajectories with random initial conditions and noise terms.
-Each trajectory represents one possible realization of the quantum field evolution.
+Each trajectory represents one possible realization of the field evolution.
 
 We initialize with random Gaussian noise in the field amplitudes, as required by the Wigner representation of the vacuum state.
 We also define a second dimension that represents the ensemble of stochastic trajectories.
@@ -175,6 +174,7 @@ end
 ````
 
 The momentum distribution shows a symmetric peak at k=0 and tails extending to finite momentum.
+The result is noisy, but this is solved by simply increasing the number of stochastic trajectories.
 
 ### Second-order correlation function in momentum space
 
@@ -183,7 +183,7 @@ between different momentum modes. This quantity is defined as:
 ```math
 g_2(k, k') = \frac{\langle \hat{\psi}_1^*(k) \hat{\psi}_2^*(k') \hat{\psi}_1(k) \hat{\psi}_2(k') \rangle}{n(k) n(k')}
 ```
-where \hat{\psi} denotes quantum field operators.
+where ``\hat{\psi}`` denotes quantum field operators.
 
 In the Wigner representation, we must include corrections to account for the symmetrically ordered nature of the representation.
 Therefore, the calculation of g₂(k,k') from the stochastic fields requires the formula:
