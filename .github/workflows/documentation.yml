@@ -4,14 +4,8 @@ on:
   push:
     branches:
       - master # update to match your development branch (master, main, dev, trunk, ...)
-    paths:
-      - 'src/**'
-      - 'docs/**'
     tags: '*'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'docs/**'
 
 jobs:
   build:
