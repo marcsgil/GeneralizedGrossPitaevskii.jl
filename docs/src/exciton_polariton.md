@@ -21,7 +21,7 @@ In the above, `ψ_c` and `ψ_x` are the photonic and excitonic components of the
 `Ω_r` is the Rabi frequency describing the coupling between photons and excitons,
 `F_c(x, t)` is the coherent pump acting on the photonic component, and `g` is the strength of the exciton-exciton nonlinear interactions.
 
-As always, we start by loading the package
+As always, we start by loading the package:
 
 ````@example exciton_polariton
 using GeneralizedGrossPitaevskii

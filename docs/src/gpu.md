@@ -6,7 +6,7 @@ This page explains how to enable GPU support, configure backends, and optimize p
 
 ## [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl)
 
-[KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) provides a unified interface for writing GPU kernels that work across different backends (CUDA, ROCm, oneAPI, etc.). GeneralizedGrossPitaevskii.jl leverages this abstraction to provide hardware-agnostic simulations. Beyond CPU, the package has only been thested with the CUDA backend. The other backends are untested.
+[KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) provides a unified interface for writing GPU kernels that work across different backends (CUDA, ROCm, oneAPI, etc.). GeneralizedGrossPitaevskii.jl leverages this abstraction to provide hardware-agnostic simulations. Beyond CPU, the package has only been tested with the CUDA backend. The other backends are untested.
 
 ## Specifying the GPU backend
 

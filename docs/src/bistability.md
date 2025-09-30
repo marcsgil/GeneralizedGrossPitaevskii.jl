@@ -9,7 +9,7 @@ The mean field equations describing this system may possess two stable solutions
 They can be reached by varying the pump intensity, inducing a hysteresis loop.
 Here, we show the theoretical bistability curve and compare it with the results from a numerical simulation.
 
-First we load the necessary packages
+First we load the necessary packages:
 
 ````@example bistability
 using GeneralizedGrossPitaevskii, CairoMakie
@@ -26,7 +26,7 @@ In the above, ψ represents the wave function of the polariton condensate, which
 F(x, t) is an external pump, which is a monochromatic term detuned from the cavity resonance by a frequency δ,
 γ is the decay rate of the polaritons,
 ħ is the reduced Planck constant,
-m is the effective mass of the polaritons.
+m is the effective mass of the polaritons,
 and g is the strength of the nonlinear interaction.
 
 Here we define the numerical values of some of the parameters
@@ -162,7 +162,7 @@ Now, we define the problem and obtain the solution:
 
 ````@example bistability
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
-ts, sol = solve(prob, alg, tspan; dt, nsaves);
+ts, sol = solve(prob, alg, tspan; dt, nsaves, show_progress=false);
 nothing #hide
 ````
 

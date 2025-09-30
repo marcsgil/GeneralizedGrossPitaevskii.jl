@@ -22,12 +22,12 @@ The **Strang splitting** scheme provides second-order accuracy by symmetrically 
 The time evolution is implemented using a split-step method with Strang splitting. A single step of size `dt` from time `t` to `t+dt` is given by
 
 ```math
-    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t)dt/2) + F(t+dt/2)dt/2 -i \sqrt{dt/2} \eta_1 dW \\
-    \tilde{u} = e^{-iDdt}\tilde{u} -i \sqrt{dt} \eta_2 dW \\
-    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t+dt/2)dt/2) + F(t+dt)dt/2 -i \sqrt{dt/2} \eta_1 dW \\
+    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t)dt/2) + F(t+dt/2)dt/2 -i \sqrt{dt/2} \eta dW \\
+    \tilde{u} = e^{-iDdt}\tilde{u}  \\
+    u = e^{-iGdt/2} e^{-iVdt/2}(u + F(t+dt/2)dt/2) + F(t+dt)dt/2 -i \sqrt{dt/2} \eta dW \\
 ```
 
-In the above, `u` denotes the fields in real space, while `ũ` denotes the fields in Fourier space; `G` is the nonlinear term, `V` is the potential term, and `D` is the dispersion term. The terms `η₁` and `η₂` are the noise amplitudes for the real space and Fourier space evolutions, respectively, and `dW` is a Wiener increment, which is a normally distributed random variable with mean `0` and variance `1`. Each of the noise terms is independent.u
+In the above, `u` denotes the fields in real space, while `ũ` denotes the fields in Fourier space; `G` is the nonlinear term, `V` is the potential term, and `D` is the dispersion term. The term `η` is the noise amplitude, and `dW` is a Wiener increment, which is a normally distributed random variable with mean `0` and variance `1`.
 
 We can see that it is divided into three parts:
 

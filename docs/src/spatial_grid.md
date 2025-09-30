@@ -15,8 +15,8 @@ lengths = (L,)
 # 2D domain of size Lₓ × Lᵧ  
 lengths = (Lₓ, Lᵧ)
 
-# 3D domain of size Lₓ × Lᵧ × Lᵤ
-lengths = (Lₓ, Lᵧ, Lᵤ)
+# 3D domain of size Lₓ × Lᵧ × Lz
+lengths = (Lₓ, Lᵧ, Lz)
 ```
 
 ### Grid Points and Spacing
@@ -64,8 +64,9 @@ GeneralizedGrossPitaevskii.jl exclusively uses **periodic boundary conditions** 
 
 ### Why Periodic Boundaries?
 
-- **FFT Efficiency**: FFTs naturally assume periodicity
-- **GPU Compatibility**: Highly optimized FFT libraries (FFTW, CUDA) work seamlessly
+As FFTs naturally assume periodicity, we simply have to ask why to use FFTs at all. The main reasons are:
+
+- **FFT Efficiency**: FFTs are computationally efficient for periodic problems, reducing the complexity from O(N²) to O(N log N). Furthermore, there are highly optimized libraries (like FFTW) that make FFTs very fast in practice, even with GPU acceleration (cuFFT).
 - **Simplicity**: Easier to implement and maintain for arbitrary dimensionality compared to other boundary conditions
 
 ### Practical Implications

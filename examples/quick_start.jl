@@ -2,7 +2,7 @@
 # In this quick start example, we will demonstrate how to set up a simple Gross-Pitaevskii problem
 # and solve it using the GeneralizedGrossPitaevskii package.
 # As a first example, we will simulate free propagation of a wavefunction in a 2D grid.
-# Latter, we will add a nonlinear term in order to have a proper Gross-Pitaevskii equation.
+# Later, we will add a nonlinear term in order to have a proper Gross-Pitaevskii equation.
 
 # ## Free Propagation
 
@@ -22,12 +22,13 @@ lengths = (L, L);
 # Each element corresponds to the size of the grid in each dimension.
 # As we will be simulating a 2D system, and the grid is square, both elements are equal.
 
-# Next, we define the initial condition of the wavefunction.
-# This is the step size of the grid.
+# Now, we turn to the definition of the initial condition of the wavefunction.
+
+# The first step is to define the inter-point distance in the grid:
 ΔL = L / N;
 # This is used to create a range of points in the grid.
 rs = StepRangeLen(0, ΔL, N);
-# Observe that this package always assume that the grid starts is of the from 0, ΔL, 2ΔL, ..., (N-1)ΔL.
+# Observe that this package always assumes that the grid is of the form 0, ΔL, 2ΔL, ..., (N-1)ΔL.
 # This is easily created with the `StepRangeLen` function.
 
 # We can use this grid to create an initial condition for the wavefunction:
@@ -42,7 +43,7 @@ u0 = (initial_condition,);
 # This indicates that we have one wavefunction in our simulation.
 
 # Next, we need to specify the equation that our system obeys.
-# As this is a free propagation problem, we the wavefunction satisfies the Schrödinger equation i ∂u(r, t)/∂t = -∇²u / 2
+# As this is a free propagation problem, the wavefunction satisfies the Schrödinger equation i ∂u(r, t)/∂t = -∇²u / 2.
 # In Fourier space, this corresponds to a dispersion relation D(k) = |k|² / 2, which we now define:
 dispersion(ks, param) = sum(abs2, ks) / 2;
 # The extra argument `param` is a placeholder for additional parameters, such as mass, that may be needed in more complex problems, 
@@ -73,7 +74,7 @@ ts, sol = solve(prob, alg, tspan; nsaves, dt);
 
 # The `solve` function returns two values: the time points `ts` on which the solution was saved and the solution `sol`.
 # `sol` is again a tuple, where each element corresponds to a wavefunction in the simulation. 
-# Each element in this tuple is an array with one extra dimension then the initial condition, which corresponds to the time dimension.
+# Each element in this tuple is an array with one extra dimension than the initial condition, which corresponds to the time dimension.
 # We can use the `save_animation` function (which comes from StructuredLight and CairoMakie) to visualize the solution:
 save_animation(abs2.(sol[1]), "free_prop_example.mp4");
 
@@ -85,20 +86,20 @@ save_animation(abs2.(sol[1]), "free_prop_example.mp4");
 # where g is a coupling constant that defines the strength of the nonlinearity.
 
 # To add this nonlinear term, we need to define a new function that takes the wavefunction and returns the nonlinearity term 
-# (only the g|u|² part. Check [`GrossPitaevskiiProblem`](@ref) for more information).
+# (only the g|u|² part. Check [`GrossPitaevskiiProblem`](@ref) for more information.)
 nonlinearity(u, param) = param.g * abs2(u[1]);
 
 # Here, we have used the `param` argument to pass the coupling constant `g`.
 # We define this argument as a named tuple:
 param = (; g=-6);
-# The negative value of `g` indicates that we have a attractive nonlinearity, which will be clear in the visualization.
+# The negative value of `g` indicates that we have an attractive nonlinearity, which will be clear in the visualization.
 # Now we can create a new problem instance with the nonlinearity:
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, param);
 # We used the same initial condition, lengths, and dispersion as before, but now we have added the nonlinearity and the parameters.
 
 # Just as before, we can solve the problem and visualize the solution:
 tspan = (0, 0.4)
-ts, sol = solve(prob, alg, tspan; nsaves, dt);
+ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false);
 
 save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4");
 

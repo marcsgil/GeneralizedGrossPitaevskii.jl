@@ -11,7 +11,7 @@ exciton-polariton condensates, and other nonlinear wave phenomena.
 
 The equation to be solved is of the form:
 
-`` i du(r, t) = [D(-i∇)u + V(r)u + G(u)u + i F(r, t)]dt + η₁(u, r) dW₁ + η₂(-i∇u, k) dW₂ ``
+`` i du(r, t) = [D(-i∇)u + V(r)u + G(u)u + i F(r, t)]dt + η(u, r) dW ``
 
 where:
 
@@ -31,13 +31,11 @@ where:
 - `pump`: F(r, t) in the above equation. Function defining pump/drive terms, may be time-dependent. Should have 
   the signature `pump(r, param, t)`, where `r` is a tuple representing a point in direct space, `param` 
   are additional parameters, and `t` is time.
-- `position_noise_func`: η₁(u, r) in the above equation. Function defining stochastic terms in position. Should have the signature 
-  `noise_func(u, r param)`, where `u` is a tuple representing the fields at a point in direct space `r` and 
+- `position_noise_func`: η(u, r) in the above equation. Function defining stochastic terms in position. Should have the signature 
+  `noise_func(u, r, param)`, where `u` is a tuple representing the fields at a point in direct space `r` and 
   `param` are additional parameters.
-- `momentum_noise_func`: η₂(u, -i∇) in the above equation. Function defining stochastic terms in momentum. Should have the signature 
-  `noise_func(u, k param)`, where `u` is a tuple representing the fields at a point in reciprocal space `k` and 
-  `param` are additional parameters. (Untested)
-- `noise_prototype`: ξ₁ and ξ₂ in the above equation. Prototype for noise terms. When specified, this should be a tuple 
+- `momentum_noise_func`: A counterpart of `position_noise_func` for momentum space. (Untested)
+- `noise_prototype`: ξ in the above equation. Prototype for noise terms. When specified, this should be a tuple 
   of arrays with the correct element type and shape for the noise terms. We will call `randn!(rng, noise_prototype)` 
   to generate the noise terms, which generates a random gaussian number with mean ⟨ξ⟩ = 0 and mean 
   absolute square ⟨|ξ|²⟩ = 1.
@@ -89,7 +87,7 @@ end
 nonlinearity(u, param) = @SVector [0, param.g * abs2(u[2])]
 
 function pump(r, param, t)
-    SVector(param.A * exp(-sum(abs2, r) / param.w^2), 0)
+    @SVector [param.A * exp(-sum(abs2, r) / param.w^2), 0]
 end
 
 # Create the problem

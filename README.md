@@ -1,6 +1,6 @@
 # GeneralizedGrossPitaevskii.jl
 
-[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/stable/)
+[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/)
 
 A high-performance Julia package for simulating generalized Gross-Pitaevskii equations, designed for quantum fluid dynamics including Bose-Einstein condensates, exciton-polariton systems, and quantum phase-space methods.
 
@@ -120,7 +120,7 @@ The package includes comprehensive examples demonstrating various physical syste
 ## Documentation
 
 Complete documentation with detailed examples and API reference is available at:
-**[https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/stable/](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/stable/)**
+**[https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/stable/](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/)**
 
 ## Performance
 

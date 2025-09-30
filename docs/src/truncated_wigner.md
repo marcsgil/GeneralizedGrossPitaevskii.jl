@@ -71,7 +71,7 @@ A = 10;
 nothing #hide
 ````
 
-Grid parameters for a 1D system:
+Grid and parameters for a 1D system:
 
 ````@example truncated_wigner
 L = 512
@@ -79,8 +79,12 @@ N = 256
 dx = L / N
 
 lengths = (L,)
-
 param = (; ħ, m, δ, γ, g, A, L, dx)
+````
+
+We initialize the field to zero and solve the mean-field Gross-Pitaevskii equation without noise:
+
+````@example truncated_wigner
 u0 = (zeros(ComplexF64, N),);
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 nsaves = 512
@@ -104,7 +108,7 @@ with_theme(theme_latexfonts()) do
 end
 ````
 
-We can see the density approaches a steady-state value, confirming our system reaches equilibrium.
+We can see the density approaches a steady-state value, confirming that our system reaches equilibrium.
 
 ## Inclusion of quantum noise
 

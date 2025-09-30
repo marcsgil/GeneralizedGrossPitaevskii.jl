@@ -9,7 +9,7 @@ This page provides a comprehensive overview of the mathematical framework and us
 The GeneralizedGrossPitaevskii.jl package solves equations of the form:
 
 ```math
-i \, du = \left[ D(-i\nabla)u + V(\mathbf{r})u + G(u)u + i F(\mathbf{r}, t) \right] dt + \eta_1(u, \mathbf{r}) dW_1 + \eta_2(u, -i\nabla) dW_2
+i \, du = \left[ D(-i\nabla)u + V(\mathbf{r})u + G(u)u + i F(\mathbf{r}, t) \right] dt + \eta(u, \mathbf{r}) dW
 ```
 
 where:
@@ -18,7 +18,7 @@ where:
 - ``V(\mathbf{r})`` is the external potential in position space
 - ``G(u)`` captures nonlinear interactions depending on the field amplitude
 - ``F(\mathbf{r}, t)`` represents time-dependent pumping or driving terms
-- ``\eta_1, \eta_2`` are noise amplitude functions with Wiener increments ``dW_1, dW_2``
+- ``\eta`` is a noise amplitude function with Wiener increments ``dW``
 
 For multi-component systems, ``u`` becomes a vector of fields ``u = (u_1, u_2, \ldots, u_N)``, and the functions ``D``, ``V``, ``G`` can return matrices to describe coupling between components.
 
@@ -29,7 +29,7 @@ Each term in the generalized equation represents a distinct physical mechanism:
 - **Dispersion term** ``D(-i\nabla)u``: Governs the kinetic energy and momentum-dependent dynamics. For non-relativistic particles, this is typically ``D(k) = \hbar k^2/(2m)``, leading to the familiar ``-\hbar^2\nabla^2/(2m)`` kinetic energy term.
 
   **Function signature:** `dispersion(k_tuple, param)` → scalar, vector or matrix
-  - `k_tuple`: Tuple of momentum components `(kₓ, kᵧ, kᵤ, ...)`
+  - `k_tuple`: Tuple of momentum components `(kₓ, kᵧ, ...)`
   - Returns: Scalar for single-component systems, matrix for multi-component coupling
   - Example: `dispersion(ks, p) = sum(abs2, ks) / (2 * p.mass)`
 
@@ -47,7 +47,7 @@ Each term in the generalized equation represents a distinct physical mechanism:
   - Returns: Scalar for single-component, vector for multi-component systems
   - Example: `nonlinearity(u, p) = p.g * abs2(u[1])` (single-component cubic)
 
-- **Pump/Drive term** ``F(\mathbf{r}, t)``: External pumping, driving, or dissipation. The factor of ``i`` allows both coherent driving (real ``F``) and incoherent gain/loss (imaginary ``F``).
+- **Pump/Drive term** ``F(\mathbf{r}, t)``: External pumping, driving, or dissipation.
 
   **Function signature:** `pump(r_tuple, param, t)` → scalar or vector
   - `r_tuple`: Tuple of position components `(x, y, z, ...)`
@@ -56,12 +56,11 @@ Each term in the generalized equation represents a distinct physical mechanism:
   - Returns: Scalar for single-component, vector for multi-component systems
   - Example: `pump(rs, p, t) = p.P₀ * exp(-sum(abs2, rs)/p.σ²)` (Gaussian pump)
 
-- **Stochastic terms** ``\eta_j dW_j``: Quantum or thermal fluctuations that can be added in position space (``j=1``) or momentum space (``j=2``). These enable quantum phase-space methods like the truncated Wigner approximation.
+- **Stochastic terms** ``\eta dW``: Quantum or thermal fluctuations. These enable quantum phase-space methods like the truncated Wigner approximation.
 
   **Function signatures:**
   - Position noise: `position_noise_func(u_tuple, r_tuple, param)` → scalar, vector or matrix
-  - Momentum noise: `momentum_noise_func(u_tuple, k_tuple, param)` → scalar, vector or matrix
-  - Both functions take field components and spatial coordinates, returning noise amplitudes
+  - The functions take field components and spatial coordinates, returning noise amplitudes
   - Example: `position_noise_func(u, rs, p) = sqrt(p.γ)` (constant amplitude noise)
 
 ## Parameter Management

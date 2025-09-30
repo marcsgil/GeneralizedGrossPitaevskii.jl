@@ -6,15 +6,15 @@ This page explains how to implement and configure stochastic terms for simulatio
 
 ## Noise Implementation
 
-Stochastic terms are added to the deterministic Gross-Pitaevskii equation through noise amplitude functions that multiply Wiener processes. The general form includes both position and momentum space noise:
+Stochastic terms are added to the deterministic Gross-Pitaevskii equation through noise amplitude functions that multiply Wiener processes. The general form is
 
 ```math
-i \, du = [...] \, dt + \eta_1(u, \mathbf{r}) \, dW_1 + \eta_2(u, \mathbf{k}) \, dW_2
+i \, du = [...] \, dt + \eta(u, \mathbf{r}) \, dW
 ```
 
 To enable stochastic simulations, you must provide:
 
-1. **Noise amplitude functions**: `position_noise_func` and/or `momentum_noise_func`
+1. **Noise amplitude function**: `position_noise_func`
 2. **Noise prototype**: Template arrays defining noise structure and type
 3. **Modified problem constructor**: Include noise terms in `GrossPitaevskiiProblem`
 
@@ -85,17 +85,6 @@ function position_noise_func(u, r, param)
 end
 ```
 
-### Momentum Space Noise
-
-Momentum space noise is applied in Fourier space and is useful for:
-- **Momentum-dependent dissipation**: Different damping for different k-modes
-- **Spectral filtering**: Noise affecting specific momentum ranges
-
-**Function signature:**
-```julia
-momentum_noise_func(u_tuple, k_tuple, param) → scalar or vector
-```
-
 ### Noise Prototypes
 
 The `noise_prototype` parameter defines the structure, type, and size of the noise arrays used in stochastic integration. It must be a tuple with the same number of elements as the initial condition `u0`, and each element must have the same shape as the field components in `u0`, but may have a different type (e.g., real vs complex).
@@ -138,11 +127,9 @@ noise_prototype = similar.(u0)  # Automatically CUDA arrays
 
 - **Memory allocation**: The prototype determines memory layout and GPU/CPU placement
 - **Ensemble independence**: Each trajectory in the ensemble dimension receives independent noise
-- **Type consistency**: Noise prototype type should match your field arrays
 - **Size matching**: Prototype must have the same spatial dimensions as field components
 
 ### Performance Tips
 
-- Pre-allocate noise prototypes to avoid runtime allocations
 - Use appropriate precision (Float32 vs Float64) for your hardware
 - For GPU simulations, ensure prototype arrays are GPU-resident

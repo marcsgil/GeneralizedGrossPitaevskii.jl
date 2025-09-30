@@ -49,7 +49,7 @@ dt = 0.02
 nsaves = 64
 alg = StrangSplitting()
 
-ts, sol = solve(prob, alg, tspan; dt, nsaves)
+ts, sol = solve(prob, alg, tspan; dt, nsaves, show_progress=false);
 
 save_animation(abs2.(sol[1]), "free_prop_example_damp.mp4", share_colorrange=true);
 nothing #hide

@@ -6,7 +6,7 @@ EditURL = "../../examples/quick_start.jl"
 In this quick start example, we will demonstrate how to set up a simple Gross-Pitaevskii problem
 and solve it using the GeneralizedGrossPitaevskii package.
 As a first example, we will simulate free propagation of a wavefunction in a 2D grid.
-Latter, we will add a nonlinear term in order to have a proper Gross-Pitaevskii equation.
+Later, we will add a nonlinear term in order to have a proper Gross-Pitaevskii equation.
 
 ## Free Propagation
 
@@ -38,8 +38,9 @@ This is a tuple that defines the physical dimensions of the simulation domain.
 Each element corresponds to the size of the grid in each dimension.
 As we will be simulating a 2D system, and the grid is square, both elements are equal.
 
-Next, we define the initial condition of the wavefunction.
-This is the step size of the grid.
+Now, we turn to the definition of the initial condition of the wavefunction.
+
+The first step is to define the inter-point distance in the grid:
 
 ````@example quick_start
 ΔL = L / N;
@@ -53,7 +54,7 @@ rs = StepRangeLen(0, ΔL, N);
 nothing #hide
 ````
 
-Observe that this package always assume that the grid starts is of the from 0, ΔL, 2ΔL, ..., (N-1)ΔL.
+Observe that this package always assumes that the grid is of the form 0, ΔL, 2ΔL, ..., (N-1)ΔL.
 This is easily created with the `StepRangeLen` function.
 
 We can use this grid to create an initial condition for the wavefunction:
@@ -81,7 +82,7 @@ nothing #hide
 This indicates that we have one wavefunction in our simulation.
 
 Next, we need to specify the equation that our system obeys.
-As this is a free propagation problem, we the wavefunction satisfies the Schrödinger equation i ∂u(r, t)/∂t = -∇²u / 2
+As this is a free propagation problem, the wavefunction satisfies the Schrödinger equation i ∂u(r, t)/∂t = -∇²u / 2.
 In Fourier space, this corresponds to a dispersion relation D(k) = |k|² / 2, which we now define:
 
 ````@example quick_start
@@ -144,7 +145,7 @@ nothing #hide
 
 The `solve` function returns two values: the time points `ts` on which the solution was saved and the solution `sol`.
 `sol` is again a tuple, where each element corresponds to a wavefunction in the simulation.
-Each element in this tuple is an array with one extra dimension then the initial condition, which corresponds to the time dimension.
+Each element in this tuple is an array with one extra dimension than the initial condition, which corresponds to the time dimension.
 We can use the `save_animation` function (which comes from StructuredLight and CairoMakie) to visualize the solution:
 
 ````@example quick_start
@@ -160,7 +161,7 @@ We will now add a nonlinear term to the equation, which will make it a proper Gr
 where g is a coupling constant that defines the strength of the nonlinearity.
 
 To add this nonlinear term, we need to define a new function that takes the wavefunction and returns the nonlinearity term
-(only the g|u|² part. Check [`GrossPitaevskiiProblem`](@ref) for more information).
+(only the g|u|² part. Check [`GrossPitaevskiiProblem`](@ref) for more information.)
 
 ````@example quick_start
 nonlinearity(u, param) = param.g * abs2(u[1]);
@@ -175,7 +176,7 @@ param = (; g=-6);
 nothing #hide
 ````
 
-The negative value of `g` indicates that we have a attractive nonlinearity, which will be clear in the visualization.
+The negative value of `g` indicates that we have an attractive nonlinearity, which will be clear in the visualization.
 Now we can create a new problem instance with the nonlinearity:
 
 ````@example quick_start
@@ -189,7 +190,7 @@ Just as before, we can solve the problem and visualize the solution:
 
 ````@example quick_start
 tspan = (0, 0.4)
-ts, sol = solve(prob, alg, tspan; nsaves, dt);
+ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false);
 
 save_animation(abs2.(sol[1]), "gross_pitaevskii.mp4");
 nothing #hide

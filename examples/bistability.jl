@@ -5,7 +5,7 @@
 # They can be reached by varying the pump intensity, inducing a hysteresis loop.
 # Here, we show the theoretical bistability curve and compare it with the results from a numerical simulation.
 
-# First we load the necessary packages
+# First we load the necessary packages:
 using GeneralizedGrossPitaevskii, CairoMakie
 
 # ## The analytical solution
@@ -19,7 +19,7 @@ using GeneralizedGrossPitaevskii, CairoMakie
 # F(x, t) is an external pump, which is a monochromatic term detuned from the cavity resonance by a frequency δ,
 # γ is the decay rate of the polaritons,
 # ħ is the reduced Planck constant,
-# m is the effective mass of the polaritons.
+# m is the effective mass of the polaritons,
 # and g is the strength of the nonlinear interaction.
 
 # Here we define the numerical values of some of the parameters
@@ -105,7 +105,7 @@ param = (; tmax, Imax, width, δ, ħ, m, γ, g, L);
 
 # Now, we define the problem and obtain the solution:
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
-ts, sol = solve(prob, alg, tspan; dt, nsaves);
+ts, sol = solve(prob, alg, tspan; dt, nsaves, show_progress=false);
 
 # In the following plot, we can see the evolution of the density over time.
 with_theme(theme_latexfonts()) do

@@ -15,11 +15,11 @@ This package unifies the simulation of diverse quantum fluid systems under a sin
 The package solves a generalized Gross-Pitaevskii equation:
 
 ```math
-i d u(r, t) = [D(-i\nabla)u + V(r)u + G(u)u + i F(r, t)]dt + \eta_1(u, r) dW_1 + \eta_2(-i\nabla u, k) dW_2
+i d u(r, t) = [D(-i\nabla)u + V(r)u + G(u)u + i F(r, t)]dt + \eta(u, r) dW
 ```
 
 This framework encompasses a vast range of quantum fluid phenomena, allowing researchers to concentrate on physics rather than numerical implementation details.
 
 ## Getting Started
 
-Check out the [Quick-Start](@ref) guide to begin using the package, or explore the [Examples](@ref) to see various physical systems in action. Their source files can be found in the [`examples/`](https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl/tree/main/examples) directory of the GitHub repository.
+Check out the [Quick-Start](@ref) guide to begin using the package, or explore the Examples (linked in the menu to the left) to see various physical systems in action. Their source files can be found in the [`examples/`](https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl/tree/main/examples) directory of the GitHub repository.
