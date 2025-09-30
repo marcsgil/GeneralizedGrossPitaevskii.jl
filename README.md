@@ -140,8 +140,8 @@ If you use this package in your research, please consider citing:
 }
 ```
 
-[!WARNING]
-This is just a placeholder citation. Will be updated with the actual citation information when available.
+> [!WARNING]
+> This is just a placeholder citation. Will be updated with the actual citation information when available.
 
 ## License
 
