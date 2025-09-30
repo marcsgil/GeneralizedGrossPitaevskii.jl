@@ -19,7 +19,7 @@ This package unifies the simulation of diverse quantum fluid systems under a sin
 The package solves equations of the form:
 
 ```
-i du(r, t) = [D(-i∇)u + V(r)u + G(u)u + i F(r, t)]dt + η₁(u, r) dW₁ + η₂(u, -i∇) dW₂
+i du(r, t) = [D(-i∇)u + V(r)u + G(u)u + i F(r, t)]dt + η(u, r) dW
 ```
 
 where:
@@ -28,7 +28,7 @@ where:
 - `V(r)` is the external potential in position space
 - `G(u)` captures nonlinear interactions depending on the field amplitude
 - `F(r, t)` represents time-dependent pumping or driving terms
-- `η₁, η₂` are noise amplitude functions with Wiener increments `dW₁, dW₂`
+- `η` are noise amplitude functions with Wiener increments `dW`
 
 This framework encompasses a vast range of quantum fluid phenomena.
 
@@ -111,34 +111,20 @@ prob_gpu = GrossPitaevskiiProblem(u0_gpu, lengths; dispersion, nonlinearity, par
 
 The package includes comprehensive examples demonstrating various physical systems:
 
-- **[Quick Start](examples/quick_start.jl)**: Basic 2D Gaussian evolution with/without nonlinearity
-- **[Free Propagation with Damping](examples/free_propagation_damping.jl)**: Adding imaginary dispersion terms for dissipation
-- **[Bistability](examples/bistability.jl)**: Polariton condensate bistability with time-dependent pumping
-- **[Exciton-Polariton System](examples/exciton_polariton.jl)**: Two-component system with matrix dispersion relations
-- **[Truncated Wigner Method](examples/truncated_wigner.jl)**: Comprehensive quantum simulation with stochastic trajectories
+- **[Quick Start](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/quick_start/)**: Basic 2D Gaussian evolution with/without nonlinearity
+- **[Free Propagation with Damping](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/free_propagation_damping/)**: Adding imaginary dispersion terms for dissipation
+- **[Bistability](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/bistability/)**: Polariton condensate bistability with time-dependent pumping
+- **[Exciton-Polariton System](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/exciton_polariton/)**: Two-component system with matrix dispersion relations
+- **[Truncated Wigner Method](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/truncated_wigner/)**: Comprehensive quantum simulation with stochastic trajectories
 
 ## Documentation
 
 Complete documentation with detailed examples and API reference is available at:
-**[https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/stable/](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/)**
-
-## Performance
-
-- **Type-stable design** with parametric structs for optimal performance
-- **GPU acceleration** through KernelAbstractions.jl
-- **Efficient memory management** with pre-allocated buffers
-- **FFT-based spatial derivatives** for spectral accuracy
-- **Strang splitting** algorithm for robust time integration
-
-## Requirements
-
-- Julia ≥ 1.6
-- Compatible with CPU and GPU backends (CUDA)
-- Periodic boundary conditions via FFT
+**[https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/](https://marcsgil.github.io/GeneralizedGrossPitaevskii.jl/dev/)**
 
 ## Contributing
 
-Contributions are welcome!
+Contributions are welcome! Please open issues or pull requests on the [GitHub repository](https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl).
 
 ## Citation
 
@@ -154,6 +140,9 @@ If you use this package in your research, please consider citing:
 }
 ```
 
+[!WARNING]
+This is just a placeholder citation. Will be updated with the actual citation information when available.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -162,6 +151,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 This package builds upon the excellent Julia ecosystem, particularly:
 - [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) for GPU abstraction
-- [FFTW.jl](https://github.com/JuliaMath/FFTW.jl) for fast Fourier transforms
 - [StaticArrays.jl](https://github.com/JuliaArrays/StaticArrays.jl) for efficient small arrays
-- [CommonSolve.jl](https://github.com/SciML/CommonSolve.jl) for the solver interface
