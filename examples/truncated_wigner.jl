@@ -55,10 +55,10 @@ N = 256
 dx = L / N
 
 lengths = (L,)
-param = (; ħ, m, δ, γ, g, A, L, dx)
+param = (; ħ, m, δ, γ, g, A, L, dx);
 
 # We initialize the field to zero and solve the mean-field Gross-Pitaevskii equation without noise:
-u0 = (zeros(ComplexF64, N),);
+u0 = (zeros(ComplexF64, N),)
 prob = GrossPitaevskiiProblem(u0, lengths; dispersion, nonlinearity, pump, param)
 nsaves = 512
 dt = 0.05

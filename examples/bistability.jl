@@ -87,7 +87,7 @@ width = 50;
 # We now define the spatial grid used in the simulation:
 L = 256
 lengths = (L,)
-N = 128
+N = 128;
 
 # The initial condition is a vector of zeros, corresponding to an initially empty cavity.
 u0 = (zeros(ComplexF64, N),);

@@ -70,7 +70,7 @@ tspan = (0, 1);
 nsaves = 64;
 
 # Finally, we can solve the problem:
-ts, sol = solve(prob, alg, tspan; nsaves, dt);
+ts, sol = solve(prob, alg, tspan; nsaves, dt, show_progress=false);
 
 # The `solve` function returns two values: the time points `ts` on which the solution was saved and the solution `sol`.
 # `sol` is again a tuple, where each element corresponds to a wavefunction in the simulation. 

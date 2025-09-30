@@ -28,7 +28,7 @@ where:
 - `V(r)` is the external potential in position space
 - `G(u)` captures nonlinear interactions depending on the field amplitude
 - `F(r, t)` represents time-dependent pumping or driving terms
-- `η` are noise amplitude functions with Wiener increments `dW`
+- `η` is a noise amplitude function with Wiener increment `dW`
 
 This framework encompasses a vast range of quantum fluid phenomena.
 
