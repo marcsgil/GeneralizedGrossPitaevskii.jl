@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Gil de Oliveira"
+  given-names: "Marcos"
+  orcid: "https://orcid.org/0009-0006-4225-8706"
+title: "GeneralizedGrossPitaevskii.jl"
+version: v0.1.0
+doi: 10.5281/zenodo.17939769
+date-released: 2025-12-15
+url: "https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl"
