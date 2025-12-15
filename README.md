@@ -133,17 +133,16 @@ Contributions are welcome! Please open issues or pull requests on the [GitHub re
 If you use this package in your research, please consider citing:
 
 ```bibtex
-@software{Gil2024GeneralizedGrossPitaevskii,
-  author = {Gil, Marcos},
-  title = {GeneralizedGrossPitaevskii.jl: A Julia Package for Quantum Fluid Dynamics},
-  url = {https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl},
-  version = {0.1.0},
-  year = {2024}
+@software{Gil_de_Oliveira_GeneralizedGrossPitaevskii_jl_2025,
+author = {Gil de Oliveira, Marcos},
+doi = {10.5281/zenodo.17939769},
+month = dec,
+title = {{GeneralizedGrossPitaevskii.jl}},
+url = {https://github.com/marcsgil/GeneralizedGrossPitaevskii.jl},
+version = {v0.1.0},
+year = {2025}
 }
 ```
-
-> [!WARNING]
-> This is just a placeholder citation. Will be updated with the actual citation information when available.
 
 ## License
 
