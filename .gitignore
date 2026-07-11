@@ -6,3 +6,4 @@ CLAUDE.md
 test.jl
 docs/build
 package_context.md
+benchmark/results/

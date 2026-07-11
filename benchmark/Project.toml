@@ -1,0 +1,19 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+GeneralizedGrossPitaevskii = "1c32f1f8-fc12-41ee-a188-d96e58f04b51"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+BenchmarkTools = "1"
+CairoMakie = "0.15"
+CommonSolve = "0.2"
+CUDA = "6"
+JSON = "1"
+julia = "1.12"
