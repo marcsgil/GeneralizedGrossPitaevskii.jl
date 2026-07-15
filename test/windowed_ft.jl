@@ -85,7 +85,6 @@ The fields are normalized such that
     tspan = (0, 200)
     nsaves = 1
     alg = StrangSplitting()
-    ts, _sol = GeneralizedGrossPitaevskii.solve(prob, alg, tspan; nsaves, dt, save_start=false, show_progress=false, rng=Random.MersenneTwister(1234))
     ts, _sol = GeneralizedGrossPitaevskii.solve(prob, alg, tspan; nsaves, dt, save_start=false, show_progress=false)
     sol = dropdims(_sol[1], dims=3)
 

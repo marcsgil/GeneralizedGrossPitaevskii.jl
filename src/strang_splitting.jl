@@ -36,7 +36,7 @@ function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
     progress=nothing,
     save_start=true,
     workgroup_size=(),
-    rng=nothing)
+    rng=Random.default_rng())
 
     result = map(prob.u0) do x
         stack(x for _ ∈ 1:nsaves+save_start)
@@ -71,7 +71,7 @@ function diffusion_step!(iter)
     sample_noise!(prob.momentum_noise_func, prob.noise_prototype, iter.rng)
     perform_ft!(iter.ft_buffer, iter.plan, iter.u)
     iter.kernel!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, false, additiveIdentity,
-        prob.position_noise_func, prob.noise_prototype, prob.param, iter.reciprocal_grid; ndrange=size(first(iter.ft_buffer)))
+        prob.momentum_noise_func, prob.noise_prototype, prob.param, iter.reciprocal_grid; ndrange=size(first(iter.ft_buffer)))
     perform_ft!(iter.u, iter.iplan, iter.ft_buffer)
 end
 
