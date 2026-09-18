@@ -41,8 +41,8 @@ function solve!(iter::FixedTimeSteppingIterator)
         end
 
         for _ ∈ 1:steps_per_save
-            t += dt
             step!(iter, t, dt)
+            t += dt
             _next!(p)
         end
         map(copy!, slice, iter.u)

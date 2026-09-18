@@ -12,6 +12,8 @@ _mul(::MultiplicativeIdentity, y) = y
 _mul(x, ::MultiplicativeIdentity) = x
 _mul(::MultiplicativeIdentity, ::MultiplicativeIdentity) = multiplicativeIdentity
 _mul(x, ::AdditiveIdentity) = additiveIdentity
+_mul(::AdditiveIdentity, y) = additiveIdentity
+_mul(::AdditiveIdentity, ::AdditiveIdentity) = additiveIdentity
 _mul(x, args...) = _mul(x, _mul(args...))
 
 _add(x, y) = x .+ y
@@ -38,7 +40,7 @@ end
     K = @index(Global, NTuple)
 
     fields = build_field_at(dest, K)
-    point = build_field_at(grid, K)
+    point = ntuple(m -> grid[m][K[m]], length(grid))
     noise = _mul(-im * √δt, noise_func(fields, point, param), build_field_at(ξ, K))
 
     exp_δt_val = _mul(_cis(_mul(-δt, nonlinearity(fields, param))), _getindex(exp_δt, K))

@@ -41,12 +41,10 @@ function evaluate_pump!(prob, dest_next, dest_now, t)
     evaluate_pump!(prob, dest_next, t)
 end
 
-_randn!(::Nothing, x) = randn!(x)
-_randn!(rng, x) = randn!(rng, x)
 sample_noise!(::AdditiveIdentity, args...) = additiveIdentity
 function sample_noise!(::Any, prototype, rng)
     for x ∈ prototype
-        _randn!(rng, x)
+        randn!(rng, x)
     end
 end
 
