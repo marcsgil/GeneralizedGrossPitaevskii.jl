@@ -125,6 +125,7 @@ noise_prototype = similar.(u0)  # Automatically CUDA arrays
 
 ### Important Notes
 
+- **Random number generators**: `solve` defaults to `rng=nothing`, letting each noise array's backend choose its generator through `randn!(array)`. To control the random stream, pass an explicit RNG compatible with the noise arrays. Passing a CPU RNG for GPU arrays can generate noise on the CPU and copy it to the GPU at every update.
 - **Memory allocation**: The prototype determines memory layout and GPU/CPU placement
 - **Ensemble independence**: Each trajectory in the ensemble dimension receives independent noise
 - **Size matching**: Prototype must have the same spatial dimensions as field components

@@ -75,6 +75,8 @@ If `true`, the initial condition is saved as the first entry in the result, and 
 The `workgroup_size` argument can be used to specify the workgroup size for the kernel functions.
     
 The `rng` argument can be used to provide a random number generator for the simulation.
+By default, `rng=nothing` calls `randn!` without an explicit RNG, letting each noise array's
+backend select its default generator. An explicit RNG should be compatible with the noise arrays.
 """
 function solve(prob::GrossPitaevskiiProblem, args...; kwargs...)
     solve!(init(prob, args...; kwargs...))

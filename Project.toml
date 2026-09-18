@@ -1,7 +1,7 @@
 name = "GeneralizedGrossPitaevskii"
 uuid = "1c32f1f8-fc12-41ee-a188-d96e58f04b51"
 authors = ["Marcos Gil <marcosgildeoliveira@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"

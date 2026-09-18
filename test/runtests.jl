@@ -5,6 +5,7 @@ using Test, Random, Logging, StructuredLight, GeneralizedGrossPitaevskii, FFTW, 
 
 Random.seed!(1234)
 
+include("noise_rng.jl")
 include("free_propagation.jl")
 include("kerr_propagation.jl")
 include("bistability_cycle.jl")

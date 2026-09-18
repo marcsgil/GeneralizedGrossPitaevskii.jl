@@ -36,7 +36,7 @@ function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
     progress=nothing,
     save_start=true,
     workgroup_size=(),
-    rng=Random.default_rng())
+    rng=nothing)
 
     result = map(prob.u0) do x
         stack(x for _ ∈ 1:nsaves+save_start)
