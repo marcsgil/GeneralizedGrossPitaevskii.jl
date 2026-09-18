@@ -13,6 +13,7 @@ _mul(x, ::MultiplicativeIdentity) = x
 _mul(::MultiplicativeIdentity, ::MultiplicativeIdentity) = multiplicativeIdentity
 _mul(x, ::AdditiveIdentity) = additiveIdentity
 _mul(::AdditiveIdentity, y) = additiveIdentity
+_mul(::AdditiveIdentity, ::AdditiveIdentity) = additiveIdentity
 _mul(x, args...) = _mul(x, _mul(args...))
 
 _add(x, y) = x .+ y
