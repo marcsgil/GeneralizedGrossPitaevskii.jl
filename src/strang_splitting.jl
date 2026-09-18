@@ -66,11 +66,11 @@ function init(prob::GrossPitaevskiiProblem, ::StrangSplitting, tspan;
         buffer_next, buffer_now, plan, iplan, kernel!, rng, dg, rg)
 end
 
-function diffusion_step!(iter)
+function diffusion_step!(iter, dt)
     prob = iter.prob
     sample_noise!(prob.momentum_noise_func, prob.noise_prototype, iter.rng)
     perform_ft!(iter.ft_buffer, iter.plan, iter.u)
-    iter.kernel!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, false, additiveIdentity,
+    iter.kernel!(iter.ft_buffer, iter.exp_Ddt, additiveIdentity, additiveIdentity, dt, additiveIdentity,
         prob.momentum_noise_func, prob.noise_prototype, prob.param, iter.reciprocal_grid; ndrange=size(first(iter.ft_buffer)))
     perform_ft!(iter.u, iter.iplan, iter.ft_buffer)
 end
@@ -85,6 +85,6 @@ end
 
 function step!(iter::StrangSplittingIterator, t, dt)
     potential_pump_step!(t + dt / 2, dt / 2, iter)
-    diffusion_step!(iter)
+    diffusion_step!(iter, dt)
     potential_pump_step!(t + dt, dt / 2, iter)
 end
