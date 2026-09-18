@@ -40,7 +40,7 @@ end
     K = @index(Global, NTuple)
 
     fields = build_field_at(dest, K)
-    point = build_field_at(grid, K)
+    point = ntuple(m -> grid[m][K[m]], length(grid))
     noise = _mul(-im * √δt, noise_func(fields, point, param), build_field_at(ξ, K))
 
     exp_δt_val = _mul(_cis(_mul(-δt, nonlinearity(fields, param))), _getindex(exp_δt, K))
