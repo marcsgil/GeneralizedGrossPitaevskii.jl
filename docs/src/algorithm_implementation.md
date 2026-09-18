@@ -15,7 +15,17 @@ A direct numerical solution would require expensive spatial derivatives for the 
 3. **Computational efficiency**: FFT-based dispersion steps are highly optimized and GPU-friendly
 4. **Flexibility**: Easy to add new terms without restructuring the entire algorithm
 
-The **Strang splitting** scheme provides second-order accuracy by symmetrically arranging the substeps.
+The **Strang splitting** scheme symmetrically arranges the substeps. Second-order accuracy for deterministic evolution also requires sufficiently accurate substeps; the current implementation has the limitations described below.
+
+## Accuracy limitations and future work
+
+Within each position-space substep of duration ``h = dt/2``, the implementation applies ``e^{-ihG}e^{-ihV}`` in the same order. For noncommuting matrix-valued ``G`` and ``V``, this inner splitting is not symmetric and can reduce the overall deterministic method to first-order accuracy, even when both matrices are constant.
+
+A future improvement is an inner Strang splitting, ``e^{-ihV/2}e^{-ihG}e^{-ihV/2}``: potential evolution for ``dt/4``, nonlinear evolution for ``dt/2``, then potential evolution for ``dt/4``, in both position-space substeps. This symmetrization is not yet implemented.
+
+For field-dependent ``G(u)``, symmetrizing the factors alone does not guarantee second-order accuracy: the nonlinear evolution must itself be exact or approximated to at least second order. Freezing an arbitrary ``G(u)`` during a substep need not satisfy that requirement. Real scalar Kerr nonlinearity has an exact exponential nonlinear flow because that flow preserves the intensity; together with a real scalar potential and no pump or noise, it avoids this particular inner-splitting limitation.
+
+These accuracy statements concern deterministic evolution, not the convergence order of the stochastic terms.
 
 ## Mathematical Formulation
 
